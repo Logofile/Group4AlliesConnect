@@ -49,18 +49,18 @@ function Register() {
                             </Row>
                             <Row className="text-start mb-3">
                                 <Col md={3} className="d-flex align-items-center">
-                                    <h5>Confirm Email:</h5>
+                                    <h5>First Name:</h5>
                                 </Col>
                                 <Col className="d-flex align-items-center">
-                                    <Form.Control type="email" placeholder="Enter email" />
+                                    <Form.Control type="text" placeholder="Enter first name" />
                                 </Col>
                             </Row>
                             <Row className="text-start mb-3">
                                 <Col md={3} className="d-flex align-items-center">
-                                    <h5>Name:</h5>
+                                    <h5>Last Name:</h5>
                                 </Col>
                                 <Col className="d-flex align-items-center">
-                                    <Form.Control type="text" placeholder="Enter name" />
+                                    <Form.Control type="text" placeholder="Enter last name" />
                                 </Col>
                             </Row>
                             <Row className="text-start mb-3">
@@ -69,6 +69,14 @@ function Register() {
                                 </Col>
                                 <Col className="d-flex align-items-center">
                                     <Form.Control type="tel" placeholder="Enter phone number" />
+                                </Col>
+                            </Row>
+                            <Row className="text-start mb-3">
+                                <Col md={3} className="d-flex align-items-center">
+                                    <h5>ZIP Code:</h5>
+                                </Col>
+                                <Col className="d-flex align-items-center">
+                                    <Form.Control type="tel" placeholder="Enter ZIP code" />
                                 </Col>
                             </Row>
                         </Form>
@@ -107,14 +115,6 @@ function Register() {
                             <Row className="text-start mb-3">
                                 <Col md={3} className="d-flex align-items-center">
                                     <h5>Email:</h5>
-                                </Col>
-                                <Col className="d-flex align-items-center">
-                                    <Form.Control type="email" placeholder="Enter email" />
-                                </Col>
-                            </Row>
-                            <Row className="text-start mb-3">
-                                <Col md={3} className="d-flex align-items-center">
-                                    <h5>Confirm Email:</h5>
                                 </Col>
                                 <Col className="d-flex align-items-center">
                                     <Form.Control type="email" placeholder="Enter email" />
