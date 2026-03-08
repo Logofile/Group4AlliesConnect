@@ -93,8 +93,8 @@ INSERT INTO ServiceArea (serviceprovider_id, label, `order`) VALUES
 (3, 'Greater Chicago Area', 1);
 
 -- 16. Logs
-INSERT INTO EmailLog (user_id, event_id, email_type, status) VALUES
-(1, 2, 'event_confirmation', 'sent');
+INSERT INTO EmailLog (user_id, event_id, email_type, send_at, status) VALUES
+(1, 2, 'event_confirmation', NOW(), 'sent');
 
 INSERT INTO AuditLog (actor_user_id, action, entity_type, entity_id, occured_at) VALUES
 (4, 'APPROVE_CLAIM', 'ServiceProviderClaim', 1, NOW());
