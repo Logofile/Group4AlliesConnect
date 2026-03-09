@@ -49,7 +49,7 @@ module.exports = function (app, pool) {
   });
 
   // POST /api/auth/login
-  // Basic login check
+  // Basic login check + return user roles
   app.post("/api/auth/login", async (req, res) => {
     try {
       const { email, password } = req.body;
@@ -76,11 +76,22 @@ module.exports = function (app, pool) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
+      const [roleRows] = await pool.promise().query(
+        `SELECT r.role_name
+         FROM UserRole ur
+         JOIN Role r ON ur.role_id = r.role_id
+         WHERE ur.user_id = ?`,
+        [user.user_id]
+      );
+
+      const roles = roleRows.map(role => role.role_name);
+
       res.json({
         message: "Login successful",
         user_id: user.user_id,
         email: user.email,
-        status: user.status
+        status: user.status,
+        roles: roles
       });
     } catch (err) {
       console.error("Error logging in:", err);
