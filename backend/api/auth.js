@@ -121,34 +121,50 @@ module.exports = function (app, pool) {
   // GET /api/users/profile/:id
   // Retrieve user profile
   app.get("/api/users/profile/:id", async (req, res) => {
-    try {
-      const userId = req.params.id;
+  try {
+    const userId = req.params.id;
 
-      const [rows] = await pool.promise().query(
-        `SELECT 
-          u.user_id,
-          u.email,
-          u.status,
-          p.first_name,
-          p.last_name,
-          p.phone,
-          p.zip_code
-         FROM User u
-         JOIN UserProfile p ON u.user_id = p.user_id
-         WHERE u.user_id = ?`,
-        [userId]
-      );
+    const [rows] = await pool.promise().query(
+      `SELECT 
+        u.user_id,
+        u.email,
+        u.status,
+        p.first_name,
+        p.last_name,
+        p.phone,
+        p.zip_code,
+        GROUP_CONCAT(r.role_name) AS roles
+       FROM User u
+       JOIN UserProfile p ON u.user_id = p.user_id
+       LEFT JOIN UserRole ur ON u.user_id = ur.user_id
+       LEFT JOIN Role r ON ur.role_id = r.role_id
+       WHERE u.user_id = ?
+       GROUP BY u.user_id`,
+      [userId]
+    );
 
-      if (rows.length === 0) {
-        return res.status(404).json({ error: "User profile not found" });
-      }
-
-      res.json(rows[0]);
-    } catch (err) {
-      console.error("Error fetching user profile:", err);
-      res.status(500).json({ error: "Failed to fetch user profile" });
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "User profile not found" });
     }
-  });
+
+    const user = rows[0];
+
+    res.json({
+      user_id: user.user_id,
+      email: user.email,
+      status: user.status,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      phone: user.phone,
+      zip_code: user.zip_code,
+      roles: user.roles ? user.roles.split(",") : []
+    });
+
+  } catch (err) {
+    console.error("Error fetching user profile:", err);
+    res.status(500).json({ error: "Failed to fetch user profile" });
+  }
+});
 
   // PUT /api/users/profile/:id
   // Update user profile
