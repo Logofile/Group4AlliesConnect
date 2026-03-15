@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Container, Form } from "react-bootstrap";
-import { APIProvider, Map, Marker } from "@vis.gl/react-google-maps";
+import { Container, Form, Button } from "react-bootstrap";
+import { APIProvider, Map, Marker, InfoWindow } from "@vis.gl/react-google-maps";
 import mapPins from "../data/mapPins.json";
+import MapPinDetails from "../components/MapPinDetails";
 import '../App.css';
 
 const API_KEY = process.env.REACT_APP_MAP_API_KEY || "";
@@ -9,12 +10,17 @@ const API_KEY = process.env.REACT_APP_MAP_API_KEY || "";
 const DEFAULT_CENTER = { lat: 33.7490, lng: -84.3880 };
 
 function Maps() {
+    {/* The filters for the types of pins to display */ }
     const [filters, setFilters] = useState({
         yellow: true,
         green: true,
         blue: true,
         pink: true
     });
+    {/* The pin that is currently selected */ }
+    const [selectedPin, setSelectedPin] = useState(null);
+    {/* Whether the filters panel is expanded */ }
+    const [filtersExpanded, setFiltersExpanded] = useState(true);
 
     const handleFilterChange = (color) => {
         setFilters((prev) => ({
@@ -38,67 +44,83 @@ function Maps() {
                 borderRadius: "8px",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                 zIndex: 1000,
-                minWidth: "200px"
+                minWidth: "200px",
+                transition: "all 0.3s ease"
             }}>
-                <h5 className="mb-3" style={{ color: "var(--gold)" }}>Filters</h5>
+                {/* The filter panel */}
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h5 className="mb-0" style={{ color: "var(--gold)" }}>Filters</h5>
+                    <Button
+                        variant="link"
+                        size="sm"
+                        onClick={() => setFiltersExpanded(!filtersExpanded)}
+                        style={{ padding: 0, color: '#333', textDecoration: 'none' }}
+                    >
+                        {filtersExpanded ? '▼' : '▶'}
+                    </Button>
+                </div>
 
-                <Form>
-                    <div className="d-flex align-items-center mb-2">
-                        <span style={{ display: "inline-block", width: "14px", height: "14px", backgroundColor: "#fff579", borderRadius: "50%", marginRight: "10px" }}></span>
-                        <Form.Check
-                            type="checkbox"
-                            label="Events"
-                            checked={filters.yellow}
-                            onChange={() => handleFilterChange("yellow")}
-                            id="filter-yellow"
-                            className="mb-0"
-                        />
-                    </div>
-                    <div className="d-flex align-items-center mb-2">
-                        <span style={{ display: "inline-block", width: "14px", height: "14px", backgroundColor: "#00e85f", borderRadius: "50%", marginRight: "10px" }}></span>
-                        <Form.Check
-                            type="checkbox"
-                            label="Food Assistance"
-                            checked={filters.green}
-                            onChange={() => handleFilterChange("green")}
-                            id="filter-green"
-                            className="mb-0"
-                        />
-                    </div>
-                    <div className="d-flex align-items-center mb-2">
-                        <span style={{ display: "inline-block", width: "14px", height: "14px", backgroundColor: "#5d94f8", borderRadius: "50%", marginRight: "10px" }}></span>
-                        <Form.Check
-                            type="checkbox"
-                            label="Housing"
-                            checked={filters.blue}
-                            onChange={() => handleFilterChange("blue")}
-                            id="filter-blue"
-                            className="mb-0"
-                        />
-                    </div>
-                    <div className="d-flex align-items-center">
-                        <span style={{ display: "inline-block", width: "14px", height: "14px", backgroundColor: "#e95daa", borderRadius: "50%", marginRight: "10px" }}></span>
-                        <Form.Check
-                            type="checkbox"
-                            label="Legal"
-                            checked={filters.pink}
-                            onChange={() => handleFilterChange("pink")}
-                            id="filter-pink"
-                            className="mb-0"
-                        />
-                    </div>
-                    <div className="d-flex align-items-center mt-3">
-                        <Form.Label className="mb-0 me-2" style={{ fontWeight: 500 }}>Distance</Form.Label>
-                        <Form.Control
-                            type="number"
-                            min="0"
-                            max="999"
-                            style={{ width: "70px", padding: "0.25rem 0.5rem" }}
-                            className="me-2 text-center"
-                        />
-                        <span style={{ fontWeight: 500 }}>miles</span>
-                    </div>
-                </Form>
+                {/* The filter options */}
+                {filtersExpanded && (
+                    <Form>
+                        <div className="d-flex align-items-center mb-2">
+                            <span style={{ display: "inline-block", width: "14px", height: "14px", backgroundColor: "#fff579", borderRadius: "50%", marginRight: "10px" }}></span>
+                            <Form.Check
+                                type="checkbox"
+                                label="Events"
+                                checked={filters.yellow}
+                                onChange={() => handleFilterChange("yellow")}
+                                id="filter-yellow"
+                                className="mb-0"
+                            />
+                        </div>
+                        <div className="d-flex align-items-center mb-2">
+                            <span style={{ display: "inline-block", width: "14px", height: "14px", backgroundColor: "#00e85f", borderRadius: "50%", marginRight: "10px" }}></span>
+                            <Form.Check
+                                type="checkbox"
+                                label="Food Assistance"
+                                checked={filters.green}
+                                onChange={() => handleFilterChange("green")}
+                                id="filter-green"
+                                className="mb-0"
+                            />
+                        </div>
+                        <div className="d-flex align-items-center mb-2">
+                            <span style={{ display: "inline-block", width: "14px", height: "14px", backgroundColor: "#5d94f8", borderRadius: "50%", marginRight: "10px" }}></span>
+                            <Form.Check
+                                type="checkbox"
+                                label="Housing"
+                                checked={filters.blue}
+                                onChange={() => handleFilterChange("blue")}
+                                id="filter-blue"
+                                className="mb-0"
+                            />
+                        </div>
+                        <div className="d-flex align-items-center">
+                            <span style={{ display: "inline-block", width: "14px", height: "14px", backgroundColor: "#e95daa", borderRadius: "50%", marginRight: "10px" }}></span>
+                            <Form.Check
+                                type="checkbox"
+                                label="Legal"
+                                checked={filters.pink}
+                                onChange={() => handleFilterChange("pink")}
+                                id="filter-pink"
+                                className="mb-0"
+                            />
+                        </div>
+                        {/* TODO: Update the distance filter to use the user's location */}
+                        <div className="d-flex align-items-center mt-3">
+                            <Form.Label className="mb-0 me-2" style={{ fontWeight: 500 }}>Distance</Form.Label>
+                            <Form.Control
+                                type="number"
+                                min="0"
+                                max="999"
+                                style={{ width: "70px", padding: "0.25rem 0.5rem" }}
+                                className="me-2 text-center"
+                            />
+                            <span style={{ fontWeight: 500 }}>miles</span>
+                        </div>
+                    </Form>
+                )}
             </div>
 
             <APIProvider apiKey={API_KEY}>
@@ -107,6 +129,7 @@ function Maps() {
                     defaultZoom={10}
                     gestureHandling={"greedy"}
                 >
+                    {/* The pins to display */}
                     {filteredPins.map((pin) => (
                         <Marker
                             key={pin.id}
@@ -115,8 +138,20 @@ function Maps() {
                             icon={{
                                 url: `http://maps.google.com/mapfiles/ms/icons/${pin.color}-dot.png`
                             }}
+                            onClick={() => setSelectedPin(pin)}
                         />
                     ))}
+
+                    {/* The info window to display when a pin is selected */}
+                    {selectedPin && (
+                        <InfoWindow
+                            position={selectedPin.position}
+                            onCloseClick={() => setSelectedPin(null)}
+                            style={{ padding: 0 }}
+                        >
+                            <MapPinDetails details={selectedPin} />
+                        </InfoWindow>
+                    )}
                 </Map>
             </APIProvider>
         </Container>
