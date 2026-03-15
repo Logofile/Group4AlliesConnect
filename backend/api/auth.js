@@ -1,3 +1,6 @@
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
+
 module.exports = function (app, pool) {
   // POST /api/auth/register
   // Create a new user account and profile
@@ -18,11 +21,11 @@ module.exports = function (app, pool) {
         });
       }
 
-      // For now, store password directly until hashing is added
-      // Later replace password with bcrypt hash
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
       const [userResult] = await pool.promise().query(
         "INSERT INTO User (email, password_hash, status) VALUES (?, ?, 'active')",
-        [email, password]
+        [email, hashedPassword]
       );
 
       const userId = userResult.insertId;
@@ -71,8 +74,9 @@ module.exports = function (app, pool) {
 
       const user = rows[0];
 
-      // For now, direct comparison until hashing/JWT is added
-      if (user.password_hash !== password) {
+      const passwordMatch = await bcrypt.compare(password, user.password_hash);
+
+      if (!passwordMatch) {
         return res.status(401).json({ error: "Invalid email or password" });
       }
 
