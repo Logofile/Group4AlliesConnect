@@ -1,3 +1,5 @@
+const { logAudit } = require("../utils/logging");
+
 module.exports = function (app, pool) {
   // GET /api/resources
   // Optional filters: category, zip
@@ -148,6 +150,8 @@ module.exports = function (app, pool) {
         hours || null
       ]);
 
+      await logAudit(pool, 1, "CREATE_RESOURCE", "Resource", result.insertId);
+      
       res.status(201).json({
         message: "Resource created successfully",
         resource_id: result.insertId
@@ -186,6 +190,8 @@ module.exports = function (app, pool) {
         resourceId
       ]);
 
+      await logAudit(pool, 1, "UPDATE_RESOURCE", "Resource", resourceId);
+      
       res.json({ message: "Resource updated successfully" });
     } catch (err) {
       console.error("Error updating resource:", err);
@@ -204,6 +210,8 @@ module.exports = function (app, pool) {
         [resourceId]
       );
 
+      await logAudit(pool, 1, "DELETE_RESOURCE", "Resource", resourceId);
+      
       res.json({ message: "Resource deleted successfully" });
     } catch (err) {
       console.error("Error deleting resource:", err);
