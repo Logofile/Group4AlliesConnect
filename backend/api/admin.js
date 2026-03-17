@@ -1,3 +1,5 @@
+const { logAudit } = require("../utils/logging");
+
 module.exports = function (app, pool) {
 
   // GET /api/admin/pending-providers
@@ -33,6 +35,8 @@ module.exports = function (app, pool) {
         [status, providerId]
       );
 
+      await logAudit(pool, 1, "UPDATE_PROVIDER_STATUS", "ServiceProvider", providerId);
+      
       res.json({ message: "Provider status updated" });
 
     } catch (err) {
@@ -97,10 +101,7 @@ module.exports = function (app, pool) {
         [providerId]
       );
 
-      await pool.promise().query(
-        "INSERT INTO AuditLog (actor_user_id, action, entity_type, entity_id) VALUES (?, ?, ?, ?)",
-        [1, "APPROVE_PROVIDER", "ServiceProvider", providerId]
-      );
+      await logAudit(pool, 1, "APPROVE_PROVIDER", "ServiceProvider", providerId);
 
       res.json({ message: "Provider approved" });
 
