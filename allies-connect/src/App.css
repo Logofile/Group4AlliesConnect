@@ -57,15 +57,7 @@
   width: 100%;
   padding: 15px;
   font-size: 1.1rem;
-}
-
-.btn-white {
-  background-color: white !important;
-  border: none !important;
-  color: var(--gold) !important;
-  width: 100%;
-  padding: 15px;
-  font-size: 1.1rem;
+  border-radius: 4px;
 }
 
 .btn-gold:hover {
@@ -80,6 +72,8 @@
   width: 100%;
   padding: 15px;
   font-size: 1.1rem;
+  border: 2px solid var(--gold) !important;
+  border-radius: 4px;
 }
 
 .btn-white:hover {
