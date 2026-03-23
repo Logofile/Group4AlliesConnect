@@ -1,3 +1,5 @@
+const { logAudit, logEmail } = require("../utils/logging");
+
 module.exports = function (app, pool) {
   // GET /api/volunteer-opportunities
   // Optional filters: zip, provider_id, event_id, resource_id
@@ -144,6 +146,8 @@ module.exports = function (app, pool) {
 
       const [result] = await pool.promise().query(query, [shift_id, user_id]);
 
+      await logEmail(pool, user_id, null, "volunteer_confirmation", "sent");
+
       res.status(201).json({
         message: "Volunteer signup created successfully",
         signup_id: result.insertId
@@ -212,6 +216,8 @@ module.exports = function (app, pool) {
         contact_phone || null
       ]);
 
+      await logAudit(pool, 1, "CREATE_VOLUNTEER_OPPORTUNITY", "VolunteerOpportunity", result.insertId);
+
       res.status(201).json({
         message: "Volunteer opportunity created successfully",
         opportunity_id: result.insertId
@@ -264,6 +270,8 @@ module.exports = function (app, pool) {
         opportunityId
       ]);
 
+      await logAudit(pool, 1, "UPDATE_VOLUNTEER_OPPORTUNITY", "VolunteerOpportunity", opportunityId);
+
       res.json({ message: "Volunteer opportunity updated successfully" });
     } catch (err) {
       console.error("Error updating volunteer opportunity:", err);
@@ -281,6 +289,8 @@ module.exports = function (app, pool) {
         "DELETE FROM VolunteerOpportunity WHERE opportunity_id = ?",
         [opportunityId]
       );
+
+      await logAudit(pool, 1, "DELETE_VOLUNTEER_OPPORTUNITY", "VolunteerOpportunity", opportunityId);
 
       res.json({ message: "Volunteer opportunity deleted successfully" });
     } catch (err) {

@@ -1,3 +1,5 @@
+const { logEmail } = require("../utils/logging");
+
 module.exports = function (app, pool) {
   // GET /api/events
   // Optional filters: category, zip, date_from, date_to
@@ -146,6 +148,8 @@ module.exports = function (app, pool) {
       `;
 
       await pool.promise().query(query, [eventId, userId, status]);
+
+      await logEmail(pool, userId, eventId, "event_confirmation", "sent");
 
       res.status(201).json({
         message: "RSVP recorded successfully"
