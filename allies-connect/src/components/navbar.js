@@ -6,7 +6,9 @@ function MyNavbar({ user, setUser , role, setRole }) {
 
     const handleLogout = () => {
         setUser(null);
+        localStorage.removeItem("user");
         setRole(null);
+        localStorage.removeItem("role");
         navigate('/');
     };
 
