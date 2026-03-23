@@ -1,7 +1,11 @@
-import { Col, Container, Row } from "react-bootstrap";
+import { Col, Container, Row , Modal} from "react-bootstrap";
+import { useState} from "react";
 import "../App.css";
+import PendOrgModal from "../components/PendOrgModal";
 
 function Admin({ user, setUser , role, setRole }) {
+    const [showPendOrgModal, setShowPendOrgModal] = useState(false);
+
     return (
         <Container className="admin-container">
             <div className="text-container mt-5 mb-5">
@@ -11,7 +15,7 @@ function Admin({ user, setUser , role, setRole }) {
                 <h3 className="border-bottom pb-2 mb-3">Accounts Management</h3>
                 <Row className="d-flex">
                     <Col md={5} className="d-flex mb-2">
-                        <button className="btn-gold flex-grow-1">Review Pending Organizations</button>
+                        <button className="btn-gold flex-grow-1" onClick={() => setShowPendOrgModal(true)}>Review Pending Organizations</button>
                     </Col>
                     <Col md={5} className="d-flex mb-2">
                         <button className="btn-white flex-grow-1">Edit Accounts</button>
@@ -20,7 +24,7 @@ function Admin({ user, setUser , role, setRole }) {
             </div>
             <div className="mb-4">
                 <h3 className="border-bottom pb-2 mb-3">Review Content</h3>
-                <Row className="d-flex">
+                <Row className="d-flex"> 
                     <Col md={5} className="d-flex mb-2">
                         <button className="btn-gold flex-grow-1">Manage Resources</button>
                     </Col>
@@ -43,6 +47,7 @@ function Admin({ user, setUser , role, setRole }) {
                     </Col>
                 </Row>    
             </div>
+            <PendOrgModal show={showPendOrgModal} onHide={() => setShowPendOrgModal(false)} />
         </Container>
     );
 }

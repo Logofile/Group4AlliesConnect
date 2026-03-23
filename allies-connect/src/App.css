@@ -38,11 +38,15 @@
 
 .btn-outline-navbar {
   color: white;
-  border: 2px solid white;
+  border: 2px solid white !important;
   background: transparent;
   border-radius: 4px;
   padding: 6px 20px;
   margin-left: 10px;
+}
+
+.btn-outline-navbar.btn-gold {
+  border-color: white !important;
 }
 
 .btn-outline-navbar:hover {
@@ -52,10 +56,8 @@
 
 .btn-gold {
   background-color: var(--gold) !important;
-  border: none !important;
+  border: 2px solid var(--gold) !important;
   color: white !important;
-  width: 100%;
-  padding: 15px;
   font-size: 1.1rem;
   border-radius: 4px;
 }
@@ -67,18 +69,41 @@
 
 .btn-white {
   background-color: white !important;
-  border: none !important;
   color: var(--gold) !important;
-  width: 100%;
-  padding: 15px;
   font-size: 1.1rem;
-  border: 2px solid var(--gold) !important;
+  border: 2px solid var(--gold);
   border-radius: 4px;
 }
 
 .btn-white:hover {
   background-color: whitesmoke !important;
   color: var(--gold) !important;
+}
+
+.btn-green {
+  background-color: #28a745 !important;
+  border: solid 2px #28a745 !important;
+  color: white !important;
+  font-size: 1.1rem;
+  border-radius: 4px;
+}
+
+.btn-green:hover {
+  background-color: #218838 !important;
+  color: white !important;
+}
+
+.btn-red {
+  background-color: #dc3545 !important;
+  border: solid 2px #dc3545 !important;
+  color: white !important;
+  font-size: 1.1rem;
+  border-radius: 4px;
+}
+
+.btn-red:hover {
+  background-color: #c82333 !important;
+  color: white !important;
 }
 
 .feature-box {
@@ -121,4 +146,8 @@
   display: inline-flex;
   align-items: center;
   color: white !important;
+}
+
+.modal-wide .modal-dialog {
+  max-width: 95%;
 }
