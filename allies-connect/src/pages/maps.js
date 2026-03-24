@@ -1,15 +1,55 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Container, Form, Button } from "react-bootstrap";
-import { APIProvider, Map, Marker, InfoWindow } from "@vis.gl/react-google-maps";
+import { APIProvider, Map, Marker, InfoWindow, useMap } from "@vis.gl/react-google-maps";
 import mapPins from "../data/mapPins.json";
 import MapPinDetails from "../components/MapPinDetails";
 import '../App.css';
 
 const API_KEY = process.env.REACT_APP_MAP_API_KEY || "";
-// Set the center of the map to the middle of Atlanta
+
+// Set the initial center of the map to the middle of Atlanta
 const DEFAULT_CENTER = { lat: 33.7490, lng: -84.3880 };
 
+// Hook into the mapping library's context
+function MapUpdater({ userLocation }) {
+    const map = useMap();
+
+    // Whenever 'map' or 'userLocation' changes, run this code
+    useEffect(() => {
+        if (map && userLocation) {
+            map.panTo(userLocation); // Smoothly moves the camera
+            map.setZoom(13); // Zooms in closer since we know their location now
+        }
+    }, [map, userLocation]);
+
+    return null; // It doesn't render any visible UI
+}
+
 function Maps() {
+
+    {/* The location of the user */ }
+    const [userLocation, setUserLocation] = useState(null);
+
+    // Fetch the user's location when the page loads
+    useEffect(() => {
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    // The user clicked "Allow Location"
+                    setUserLocation({
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    });
+                },
+                (error) => {
+                    // They clicked "Deny" or their device doesn't support it
+                    // TODO: Add a modal to ask the user for their location
+                    console.log("Location not provided. Waiting for manual input.");
+                }
+            );
+        }
+    }, []);
+
     {/* The filters for the types of pins to display */ }
     const [filters, setFilters] = useState({
         yellow: true,
@@ -17,8 +57,10 @@ function Maps() {
         blue: true,
         pink: true
     });
+
     {/* The pin that is currently selected */ }
     const [selectedPin, setSelectedPin] = useState(null);
+
     {/* Whether the filters panel is expanded */ }
     const [filtersExpanded, setFiltersExpanded] = useState(true);
 
@@ -124,6 +166,7 @@ function Maps() {
             </div>
 
             <APIProvider apiKey={API_KEY}>
+                <MapUpdater userLocation={userLocation} />
                 <Map
                     defaultCenter={DEFAULT_CENTER}
                     defaultZoom={10}
