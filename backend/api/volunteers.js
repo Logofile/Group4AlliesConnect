@@ -1,4 +1,5 @@
 const { logAudit, logEmail } = require("../utils/logging");
+const { requireRole } = require("../middleware/permissions");
 
 module.exports = function (app, pool) {
   // GET /api/volunteer-opportunities
@@ -178,7 +179,7 @@ module.exports = function (app, pool) {
 
   // POST /api/volunteer-opportunities
   // Creates a volunteer opportunity
-  app.post("/api/volunteer-opportunities", async (req, res) => {
+  app.post("/api/volunteer-opportunities", requireRole(pool, "provider"), async (req, res) => {
     try {
       const {
         provider_id,
@@ -230,7 +231,7 @@ module.exports = function (app, pool) {
 
   // PUT /api/volunteer-opportunities/:id
   // Updates a volunteer opportunity
-  app.put("/api/volunteer-opportunities/:id", async (req, res) => {
+  app.put("/api/volunteer-opportunities/:id", requireRole(pool, "provider"), async (req, res) => {
     try {
       const opportunityId = req.params.id;
       const {
@@ -281,7 +282,7 @@ module.exports = function (app, pool) {
 
   // DELETE /api/volunteer-opportunities/:id
   // Deletes a volunteer opportunity
-  app.delete("/api/volunteer-opportunities/:id", async (req, res) => {
+  app.delete("/api/volunteer-opportunities/:id", requireRole(pool, "provider"), async (req, res) => {
     try {
       const opportunityId = req.params.id;
 

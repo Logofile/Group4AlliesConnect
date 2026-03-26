@@ -1,3 +1,5 @@
+const { requireRole } = require("../middleware/permissions");
+
 module.exports = function (app, pool) {
   // POST /api/organizations/register
   // Creates a provider claim request for a service provider
@@ -80,7 +82,7 @@ module.exports = function (app, pool) {
 
   // PUT /api/organizations/profile/:id
   // Updates organization profile details
-  app.put("/api/organizations/profile/:id", async (req, res) => {
+  app.put("/api/organizations/profile/:id", requireRole(pool, "provider"), async (req, res) => {
     try {
       const providerId = req.params.id;
       const {
