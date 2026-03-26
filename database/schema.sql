@@ -26,10 +26,12 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- User Identity
 CREATE TABLE `User` (
   user_id INT NOT NULL AUTO_INCREMENT,
+  username VARCHAR(100) NOT NULL,
   email VARCHAR(255) NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   status ENUM('active','suspended') NOT NULL DEFAULT 'active',
   PRIMARY KEY (user_id),
+  UNIQUE KEY uq_user_username (username),
   UNIQUE KEY uq_user_email (email(191))
 );
 
@@ -81,6 +83,7 @@ CREATE TABLE ServiceProvider (
   provider_id INT NOT NULL AUTO_INCREMENT,
   location_id INT NULL,
   name VARCHAR(255) NOT NULL,
+  ein VARCHAR(20) NOT NULL,
   common_name VARCHAR(255) NULL,
   phone_number VARCHAR(10) NULL,
   website VARCHAR(255) NULL,
@@ -95,6 +98,7 @@ CREATE TABLE ServiceProvider (
   logo_url VARCHAR(255) NULL,
   status ENUM('pending','active','suspended') NOT NULL DEFAULT 'pending',
   PRIMARY KEY (provider_id),
+  UNIQUE KEY uq_provider_ein (ein),
   CONSTRAINT fk_provider_location
     FOREIGN KEY (location_id) REFERENCES Location(location_id)
     ON DELETE SET NULL ON UPDATE CASCADE
