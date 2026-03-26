@@ -21,6 +21,17 @@ module.exports = function (app, pool) {
         });
       }
 
+      const [existingUsers] = await pool.promise().query(
+        "SELECT user_id FROM User WHERE email = ?",
+        [email]
+      );
+
+      if (existingUsers.length > 0) {
+        return res.status(400).json({
+          error: "An account with that email already exists"
+        });
+      }
+
       const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       const [userResult] = await pool.promise().query(
