@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { Container, Form, Button } from "react-bootstrap";
 import { APIProvider, Map, Marker, InfoWindow, useMap } from "@vis.gl/react-google-maps";
-import mapPins from "../data/mapPins.json";
+import axios from "axios";
 import MapPinDetails from "../components/MapPinDetails";
 import '../App.css';
 
 const API_KEY = process.env.REACT_APP_MAP_API_KEY || "";
+const API_URL = process.env.REACT_APP_API_URL || "http://localhost:5000";
 
 // Set the initial center of the map to the middle of Atlanta
 const DEFAULT_CENTER = { lat: 33.7490, lng: -84.3880 };
@@ -27,8 +28,51 @@ function MapUpdater({ userLocation }) {
 
 function Maps() {
 
+    {/* The dynamic pins loaded from the database backend */ }
+    const [mapPins, setMapPins] = useState([]);
+
     {/* The location of the user */ }
     const [userLocation, setUserLocation] = useState(null);
+
+    // Fetch the pins when the page loads
+    useEffect(() => {
+        axios.get(`${API_URL}/api/events`)
+            .then(response => {
+                const formattedPins = response.data.map(event => {
+                    // Map the backend category string to our UI pin colors
+                    let pinColor = 'red';
+                    if (event.category_name === 'Events') pinColor = 'yellow';
+                    else if (event.category_name === 'Food Assistance') pinColor = 'green';
+                    else if (event.category_name === 'Housing') pinColor = 'blue';
+                    else if (event.category_name === 'Legal') pinColor = 'pink';
+
+                    // Parse times for nice UI display
+                    const startTime = new Date(event.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const endTime = new Date(event.end_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                    return {
+                        id: event.event_id,
+                        name: event.title,
+                        color: pinColor,
+                        position: {
+                            lat: parseFloat(event.latitude),
+                            lng: parseFloat(event.longitude)
+                        },
+                        address: `${event.street_address_1}, ${event.city}, ${event.state} ${event.zip}`,
+                        hours: `${startTime} - ${endTime}`,
+                        description: event.description || "No description provided.",
+                        image: event.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=500&q=80"
+                    };
+                });
+
+                // Filter out events that don't have valid map coordinates
+                const validPins = formattedPins.filter(pin => !isNaN(pin.position.lat) && !isNaN(pin.position.lng));
+                setMapPins(validPins);
+            })
+            .catch(error => {
+                console.error("Error fetching map pins from database:", error);
+            });
+    }, []);
 
     // Fetch the user's location when the page loads
     useEffect(() => {

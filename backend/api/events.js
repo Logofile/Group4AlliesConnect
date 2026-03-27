@@ -28,7 +28,9 @@ module.exports = function (app, pool) {
           l.street_address_2,
           l.city,
           l.state,
-          l.zip
+          l.zip,
+          l.latitude,
+          l.longitude
         FROM Event e
         JOIN ServiceProvider s ON e.provider_id = s.provider_id
         JOIN Category c ON e.category_id = c.category_id
