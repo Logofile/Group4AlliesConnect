@@ -1,4 +1,5 @@
 const { logAudit } = require("../utils/logging");
+const { requireRole } = require("../middleware/permissions");
 
 module.exports = function (app, pool) {
   // GET /api/resources
@@ -119,7 +120,7 @@ module.exports = function (app, pool) {
 
   // POST /api/resources
   // Creates a new resource
-  app.post("/api/resources", async (req, res) => {
+  app.post("/api/resources", requireRole(pool, "provider"), async (req, res) => {
     try {
       const {
         provider_id,
@@ -164,7 +165,7 @@ module.exports = function (app, pool) {
 
   // PUT /api/resources/:id
   // Updates an existing resource
-  app.put("/api/resources/:id", async (req, res) => {
+  app.put("/api/resources/:id", requireRole(pool, "provider"), async (req, res) => {
     try {
       const resourceId = req.params.id;
       const {
@@ -201,7 +202,7 @@ module.exports = function (app, pool) {
 
   // DELETE /api/resources/:id
   // Deletes a resource
-  app.delete("/api/resources/:id", async (req, res) => {
+  app.delete("/api/resources/:id", requireRole(pool, "provider"), async (req, res) => {
     try {
       const resourceId = req.params.id;
 

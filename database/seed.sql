@@ -6,12 +6,12 @@ INSERT INTO Role (role_name) VALUES
 ('user'), ('volunteer'), ('provider'), ('admin');
 
 -- 2. Users (Passwords are dummy hashes)
-INSERT INTO `User` (email, password_hash, status) VALUES
-('alice@example.com', '$2y$10$abcdefghijklmnopqrstuv', 'active'),
-('bob@volunteer.org', '$2y$10$abcdefghijklmnopqrstuv', 'active'),
-('charlie@charity.com', '$2y$10$abcdefghijklmnopqrstuv', 'active'),
-('admin@system.com', '$2y$10$abcdefghijklmnopqrstuv', 'active'),
-('dave@provider.io', '$2y$10$abcdefghijklmnopqrstuv', 'active');
+INSERT INTO `User` (username, email, password_hash, status) VALUES
+('alice', 'alice@example.com', '$2y$10$abcdefghijklmnopqrstuv', 'active'),
+('bob', 'bob@volunteer.org', '$2y$10$abcdefghijklmnopqrstuv', 'active'),
+('charlie', 'charlie@charity.com', '$2y$10$abcdefghijklmnopqrstuv', 'active'),
+('admin', 'admin@system.com', '$2y$10$abcdefghijklmnopqrstuv', 'active'),
+('dave', 'dave@provider.io', '$2y$10$abcdefghijklmnopqrstuv', 'active');
 
 -- 3. User Profiles
 INSERT INTO UserProfile (user_id, first_name, last_name, phone, zip_code) VALUES
@@ -36,10 +36,10 @@ INSERT INTO Location (latitude, longitude, street_address_1, city, state, zip) V
 (41.8781, -87.6298, '789 Civic Plaza', 'Chicago', 'IL', '60604');
 
 -- 6. Service Providers
-INSERT INTO ServiceProvider (location_id, name, common_name, phone_number, website, organization_type, status) VALUES
-(1, 'Community Food Bank', 'The Food Bank', '2135551212', 'https://foodbank.org', 'value1', 'active'),
-(2, 'City Shelter Services', 'Downtown Shelter', '2125553434', 'https://cityshelter.org', 'value2', 'active'),
-(3, 'Tech for All', 'Tech4All', '3125555656', 'https://techforall.io', 'value3', 'active');
+INSERT INTO ServiceProvider (location_id, name, ein, common_name, phone_number, website, organization_type, status) VALUES
+(1, 'Community Food Bank', '11-1111111', 'The Food Bank', '2135551212', 'https://foodbank.org', 'value1', 'active'),
+(2, 'City Shelter Services', '22-2222222', 'Downtown Shelter', '2125553434', 'https://cityshelter.org', 'value2', 'active'),
+(3, 'Tech for All', '33-3333333', 'Tech4All', '3125555656', 'https://techforall.io', 'value3', 'active');
 
 -- 7. Service Provider Users & Claims
 INSERT INTO ServiceProviderUser (provider_id, user_id) VALUES (1, 3), (2, 5);
