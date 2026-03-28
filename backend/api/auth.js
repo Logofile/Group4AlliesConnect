@@ -7,6 +7,7 @@ module.exports = function (app, pool) {
   app.post("/api/auth/register", async (req, res) => {
     try {
       const {
+        username,
         email,
         password,
         first_name,
@@ -15,17 +16,39 @@ module.exports = function (app, pool) {
         zip_code
       } = req.body;
 
-      if (!email || !password || !first_name || !last_name || !phone || !zip_code) {
+      if (!username || !email || !password || !first_name || !last_name || !phone || !zip_code) {
         return res.status(400).json({
-          error: "email, password, first_name, last_name, phone, and zip_code are required"
+          error: "username, email, password, first_name, last_name, phone, and zip_code are required"
+        });
+      }
+
+      const [existingUsers] = await pool.promise().query(
+        "SELECT user_id FROM User WHERE email = ?",
+        [email]
+      );
+
+      if (existingUsers.length > 0) {
+        return res.status(400).json({
+          error: "An account with that email already exists"
+        });
+      }
+
+      const [existingUsernames] = await pool.promise().query(
+        "SELECT user_id FROM User WHERE username = ?",
+        [username]
+      );
+
+      if (existingUsernames.length > 0) {
+        return res.status(400).json({
+          error: "That username is already in use"
         });
       }
 
       const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       const [userResult] = await pool.promise().query(
-        "INSERT INTO User (email, password_hash, status) VALUES (?, ?, 'active')",
-        [email, hashedPassword]
+        "INSERT INTO User (username, email, password_hash, status) VALUES (?, ?, ?, 'active')",
+        [username, email, hashedPassword]
       );
 
       const userId = userResult.insertId;

@@ -1,40 +1,110 @@
+const bcrypt = require("bcrypt");
+const saltRounds = 10;
 const { requireRole } = require("../middleware/permissions");
 
 module.exports = function (app, pool) {
   // POST /api/organizations/register
-  // Creates a provider claim request for a service provider
+  // Creates a new user, provider, and provider claim
   app.post("/api/organizations/register", async (req, res) => {
     try {
       const {
-        provider_id,
-        user_id,
+        username,
+        email,
+        password,
+        organization_name,
+        phone_number,
+        ein,
         verification_method
       } = req.body;
 
-      if (!provider_id || !user_id) {
+      if (!username || !email || !password || !organization_name || !ein) {
         return res.status(400).json({
-          error: "provider_id and user_id are required"
+          error: "username, email, password, organization_name, and ein are required"
         });
       }
 
-      const query = `
-        INSERT INTO ServiceProviderClaim (provider_id, user_id, status, verification_method)
-        VALUES (?, ?, 'pending', ?)
-      `;
+      const [existingEmails] = await pool.promise().query(
+        "SELECT user_id FROM User WHERE email = ?",
+        [email]
+      );
 
-      const [result] = await pool.promise().query(query, [
-        provider_id,
-        user_id,
-        verification_method || null
-      ]);
+      if (existingEmails.length > 0) {
+        return res.status(400).json({
+          error: "An account with that email already exists"
+        });
+      }
+
+      const [existingUsernames] = await pool.promise().query(
+        "SELECT user_id FROM User WHERE username = ?",
+        [username]
+      );
+
+      if (existingUsernames.length > 0) {
+        return res.status(400).json({
+          error: "That username is already in use"
+        });
+      }
+
+      const [existingProviders] = await pool.promise().query(
+        "SELECT provider_id FROM ServiceProvider WHERE ein = ?",
+        [ein]
+      );
+
+      if (existingProviders.length > 0) {
+        return res.status(400).json({
+          error: "An organization with that EIN already exists"
+        });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+      const [userResult] = await pool.promise().query(
+        "INSERT INTO User (username, email, password_hash, status) VALUES (?, ?, ?, 'active')",
+        [username, email, hashedPassword]
+      );
+
+      const userId = userResult.insertId;
+
+      const [providerResult] = await pool.promise().query(
+        `INSERT INTO ServiceProvider (name, ein, phone_number, status)
+         VALUES (?, ?, ?, 'pending')`,
+        [
+          organization_name,
+          ein,
+          phone_number || null
+        ]
+      );
+
+      const providerId = providerResult.insertId;
+
+      await pool.promise().query(
+        `INSERT INTO ServiceProviderClaim (provider_id, user_id, status, verification_method)
+         VALUES (?, ?, 'pending', ?)`,
+        [
+          providerId,
+          userId,
+          verification_method || "ein"
+        ]
+      );
+
+      await pool.promise().query(
+        "INSERT INTO UserRole (user_id, role_id) SELECT ?, role_id FROM Role WHERE role_name = 'provider'",
+        [userId]
+      );
+
+      await pool.promise().query(
+        "INSERT INTO ServiceProviderUser (provider_id, user_id) VALUES (?, ?)",
+        [providerId, userId]
+      );
 
       res.status(201).json({
-        message: "Organization registration claim submitted successfully",
-        claim_id: result.insertId
+        message: "Organization registered successfully",
+        user_id: userId,
+        provider_id: providerId
       });
     } catch (err) {
-      console.error("Error registering organization claim:", err);
-      res.status(500).json({ error: "Failed to register organization claim" });
+      console.error("Error registering organization:", err);
+      res.status(500).json({ error: "Failed to register organization" });
     }
   });
 
@@ -50,6 +120,7 @@ module.exports = function (app, pool) {
           provider_id,
           location_id,
           name,
+          ein,
           common_name,
           phone_number,
           website,
