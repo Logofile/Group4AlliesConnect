@@ -36,23 +36,24 @@ function Maps() {
 
     // Fetch the pins when the page loads
     useEffect(() => {
-        axios.get(`${API_URL}/api/events`)
-            .then(response => {
-                const formattedPins = response.data.map(event => {
-                    // Map the backend category string to our UI pin colors
-                    let pinColor = 'red';
+        Promise.all([
+            axios.get(`${API_URL}/api/events`),
+            axios.get(`${API_URL}/api/resources`)
+        ])
+            .then(([eventsResponse, resourcesResponse]) => {
+                const formatEvent = (event) => {
+                    let pinColor = '';
                     if (event.category_name === 'Events') pinColor = 'yellow';
                     else if (event.category_name === 'Food Assistance') pinColor = 'green';
                     else if (event.category_name === 'Housing') pinColor = 'blue';
                     else if (event.category_name === 'Legal') pinColor = 'pink';
 
-                    // Parse times for nice UI display
                     const startTime = new Date(event.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     const endTime = new Date(event.end_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                     return {
-                        id: event.event_id,
-                        name: event.title,
+                        id: `event-${event.event_id}`,
+                        name: `${event.title} (Event)`,
                         color: pinColor,
                         position: {
                             lat: parseFloat(event.latitude),
@@ -63,10 +64,36 @@ function Maps() {
                         description: event.description || "No description provided.",
                         image: event.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=500&q=80"
                     };
-                });
+                };
+
+                const formatResource = (resource) => {
+                    let pinColor = '';
+                    if (resource.category_name === 'Events') pinColor = 'yellow';
+                    else if (resource.category_name === 'Food Assistance') pinColor = 'green';
+                    else if (resource.category_name === 'Housing') pinColor = 'blue';
+                    else if (resource.category_name === 'Legal') pinColor = 'pink';
+
+                    return {
+                        id: `resource-${resource.resource_id}`,
+                        name: `${resource.name} (Resource)`,
+                        color: pinColor,
+                        position: {
+                            lat: parseFloat(resource.latitude) - 0.0003, // Tiny offset to prevent overlapping
+                            lng: parseFloat(resource.longitude) + 0.0003
+                        },
+                        address: `${resource.street_address_1}, ${resource.city}, ${resource.state} ${resource.zip}`,
+                        hours: resource.hours || "Hours not specified",
+                        description: resource.description || "No description provided.",
+                        image: resource.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=500&q=80"
+                    };
+                };
+
+                const eventsPins = eventsResponse.data.map(formatEvent);
+                const resourcesPins = resourcesResponse.data.map(formatResource);
+                const allPins = [...eventsPins, ...resourcesPins];
 
                 // Filter out events that don't have valid map coordinates
-                const validPins = formattedPins.filter(pin => !isNaN(pin.position.lat) && !isNaN(pin.position.lng));
+                const validPins = allPins.filter(pin => !isNaN(pin.position.lat) && !isNaN(pin.position.lng));
                 setMapPins(validPins);
             })
             .catch(error => {
@@ -96,7 +123,6 @@ function Maps() {
 
     // The filters for the types of pins to display
     const [filters, setFilters] = useState({
-        red: true,
         yellow: true,
         green: true,
         blue: true,
@@ -220,12 +246,12 @@ function Maps() {
                 >
                     {/* The pins to display */}
                     {filteredPins.map((pin) => {
-                        let hexColor = '#ea4335';
+                        let hexColor = '';
                         if (pin.color === 'yellow') hexColor = '#fff579';
                         else if (pin.color === 'green') hexColor = '#00e85f';
                         else if (pin.color === 'blue') hexColor = '#5d94f8';
                         else if (pin.color === 'pink') hexColor = '#e95daa';
-                        
+
                         return (
                             <AdvancedMarker
                                 key={pin.id}
