@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Container, Form, Button } from "react-bootstrap";
-import { APIProvider, Map, Marker, InfoWindow, useMap } from "@vis.gl/react-google-maps";
+import { APIProvider, Map, AdvancedMarker, Pin, InfoWindow, useMap } from "@vis.gl/react-google-maps";
 import axios from "axios";
 import MapPinDetails from "../components/MapPinDetails";
 import '../App.css';
@@ -28,10 +28,10 @@ function MapUpdater({ userLocation }) {
 
 function Maps() {
 
-    {/* The dynamic pins loaded from the database backend */ }
+    // The dynamic pins loaded from the database backend
     const [mapPins, setMapPins] = useState([]);
 
-    {/* The location of the user */ }
+    // The location of the user
     const [userLocation, setUserLocation] = useState(null);
 
     // Fetch the pins when the page loads
@@ -94,18 +94,19 @@ function Maps() {
         }
     }, []);
 
-    {/* The filters for the types of pins to display */ }
+    // The filters for the types of pins to display
     const [filters, setFilters] = useState({
+        red: true,
         yellow: true,
         green: true,
         blue: true,
         pink: true
     });
 
-    {/* The pin that is currently selected */ }
+    // The pin that is currently selected
     const [selectedPin, setSelectedPin] = useState(null);
 
-    {/* Whether the filters panel is expanded */ }
+    // Whether the filters panel is expanded
     const [filtersExpanded, setFiltersExpanded] = useState(true);
 
     const handleFilterChange = (color) => {
@@ -215,19 +216,27 @@ function Maps() {
                     defaultCenter={DEFAULT_CENTER}
                     defaultZoom={10}
                     gestureHandling={"greedy"}
+                    mapId={process.env.REACT_APP_MAP_ID || "DEMO_MAP_ID"}
                 >
                     {/* The pins to display */}
-                    {filteredPins.map((pin) => (
-                        <Marker
-                            key={pin.id}
-                            position={pin.position}
-                            title={pin.name}
-                            icon={{
-                                url: `http://maps.google.com/mapfiles/ms/icons/${pin.color}-dot.png`
-                            }}
-                            onClick={() => setSelectedPin(pin)}
-                        />
-                    ))}
+                    {filteredPins.map((pin) => {
+                        let hexColor = '#ea4335';
+                        if (pin.color === 'yellow') hexColor = '#fff579';
+                        else if (pin.color === 'green') hexColor = '#00e85f';
+                        else if (pin.color === 'blue') hexColor = '#5d94f8';
+                        else if (pin.color === 'pink') hexColor = '#e95daa';
+                        
+                        return (
+                            <AdvancedMarker
+                                key={pin.id}
+                                position={pin.position}
+                                title={pin.name}
+                                onClick={() => setSelectedPin(pin)}
+                            >
+                                <Pin background={hexColor} borderColor={'#333'} glyphColor={'#333'} />
+                            </AdvancedMarker>
+                        );
+                    })}
 
                     {/* The info window to display when a pin is selected */}
                     {selectedPin && (
