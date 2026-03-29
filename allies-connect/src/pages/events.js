@@ -19,6 +19,7 @@ function Events() {
   const [eventTypeFilter, setEventTypeFilter] = useState("");
   const [eventLocationFilter, setEventLocationFilter] = useState("");
   const [eventOrgNameFilter, setEventOrgNameFilter] = useState("");
+  const [showInactiveEvents, setShowInactiveEvents] = useState(false);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -30,6 +31,7 @@ function Events() {
     setEventTypeFilter("");
     setEventLocationFilter("");
     setEventOrgNameFilter("");
+    setShowInactiveEvents(false);
   };
 
   useEffect(() => {
@@ -82,12 +84,15 @@ function Events() {
     const matchesOrgName = event.organization
       .toLowerCase()
       .includes(eventOrgNameFilter.toLowerCase());
+    const isActive = dayjs(event.endDatetime).isAfter(dayjs());
+    const matchesEventStatus = showInactiveEvents || isActive;
     return (
       matchesDate &&
       matchesName &&
       matchesType &&
       matchesLocation &&
-      matchesOrgName
+      matchesOrgName &&
+      matchesEventStatus
     );
   });
 
@@ -175,6 +180,15 @@ function Events() {
                     className="mt-2"
                     type="checkbox"
                     label="Events Accepting Volunteers"
+                  />
+                </Form.Group>
+                <Form.Group controlId="showInactiveEvents">
+                  <Form.Check
+                    className="mt-2"
+                    type="checkbox"
+                    label="Show Inactive Events"
+                    checked={showInactiveEvents}
+                    onChange={(e) => setShowInactiveEvents(e.target.checked)}
                   />
                 </Form.Group>
               </div>
