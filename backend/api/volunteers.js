@@ -128,6 +128,34 @@ module.exports = function (app, pool) {
     }
   });
 
+  // GET /api/events/:id/volunteer-signups/count
+  // Returns the number of registered volunteer signups tied to an event
+  app.get("/api/events/:id/volunteer-signups/count", async (req, res) => {
+    try {
+      const eventId = req.params.id;
+
+      const [rows] = await pool.promise().query(
+        `
+        SELECT COUNT(*) AS volunteer_count
+        FROM VolunteerSignup s
+        JOIN VolunteerShift vs ON s.shift_id = vs.shift_id
+        JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
+        WHERE vo.event_id = ?
+          AND s.status = 'registered'
+        `,
+        [eventId]
+      );
+
+      res.json({
+        event_id: Number(eventId),
+        volunteer_count: rows[0].volunteer_count
+      });
+    } catch (err) {
+      console.error("Error fetching volunteer signup count for event:", err);
+      res.status(500).json({ error: "Failed to fetch volunteer signup count" });
+    }
+  });
+
   // POST /api/volunteer-signups
   // Body: { shift_id, user_id }
   app.post("/api/volunteer-signups", async (req, res) => {
@@ -138,6 +166,49 @@ module.exports = function (app, pool) {
         return res.status(400).json({
           error: "shift_id and user_id are required"
         });
+      }
+
+      // Find the event tied to the selected shift
+      const [shiftRows] = await pool.promise().query(
+        `
+        SELECT
+          vs.shift_id,
+          vo.event_id
+        FROM VolunteerShift vs
+        JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
+        WHERE vs.shift_id = ?
+        `,
+        [shift_id]
+      );
+
+      if (shiftRows.length === 0) {
+        return res.status(404).json({
+          error: "Shift not found"
+        });
+      }
+
+      const eventId = shiftRows[0].event_id;
+
+      // If the shift is tied to an event, prevent duplicate event signup
+      if (eventId) {
+        const [existingSignupRows] = await pool.promise().query(
+          `
+          SELECT signup_id
+          FROM VolunteerSignup s
+          JOIN VolunteerShift vs ON s.shift_id = vs.shift_id
+          JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
+          WHERE s.user_id = ?
+            AND vo.event_id = ?
+            AND s.status = 'registered'
+          `,
+          [user_id, eventId]
+        );
+
+        if (existingSignupRows.length > 0) {
+          return res.status(400).json({
+            error: "User is already signed up to volunteer for this event"
+          });
+        }
       }
 
       const query = `
