@@ -42,11 +42,7 @@ function Maps() {
         ])
             .then(([eventsResponse, resourcesResponse]) => {
                 const formatEvent = (event) => {
-                    let pinColor = '';
-                    if (event.category_name === 'Events') pinColor = 'yellow';
-                    else if (event.category_name === 'Food Assistance') pinColor = 'green';
-                    else if (event.category_name === 'Housing') pinColor = 'blue';
-                    else if (event.category_name === 'Legal') pinColor = 'pink';
+                    const pinColor = 'yellow'; // All events use the yellow pin
 
                     const startTime = new Date(event.start_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                     const endTime = new Date(event.end_datetime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -68,8 +64,7 @@ function Maps() {
 
                 const formatResource = (resource) => {
                     let pinColor = '';
-                    if (resource.category_name === 'Events') pinColor = 'yellow';
-                    else if (resource.category_name === 'Food Assistance') pinColor = 'green';
+                    if (resource.category_name === 'Food Assistance') pinColor = 'green';
                     else if (resource.category_name === 'Housing') pinColor = 'blue';
                     else if (resource.category_name === 'Legal') pinColor = 'pink';
 
