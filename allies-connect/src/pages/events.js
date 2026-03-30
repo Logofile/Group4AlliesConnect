@@ -12,7 +12,7 @@ import {
 } from "react-bootstrap";
 
 import "../App.css";
-
+import EventDetailsModal from "../components/EventDetailsModal";
 const API_URL = process.env.REACT_APP_API_URL;
 
 function Events() {
@@ -26,6 +26,8 @@ function Events() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showEventModal, setShowEventModal] = useState(false);
 
   const clearFilters = () => {
     setSelectedDate(null);
@@ -52,7 +54,10 @@ function Events() {
           endDatetime: event.end_datetime,
           type: event.category_name,
           location: `${event.city}, ${event.state}`,
+          address: `${event.street_address}, ${event.city}, ${event.state} ${event.zip}`,
           organization: event.provider_name,
+          description: event.description,
+          image_url: event.image_url,
           status: "Active", // TODO can be derived from data later
         }));
         setEvents(mappedEvents);
@@ -208,7 +213,15 @@ function Events() {
                 <p>No events found. Please adjust your search criteria.</p>
               ) : (
                 filteredEvents.map((event) => (
-                  <Card key={event.id} className="mb-3">
+                  <Card
+                    key={event.id}
+                    className="mb-3"
+                    style={{ cursor: "pointer" }}
+                    onClick={() => {
+                      setSelectedEvent(event);
+                      setShowEventModal(true);
+                    }}
+                  >
                     <Card.Body>
                       <Card.Title>{event.title}</Card.Title>
                       <Card.Subtitle className="mb-2 text-muted">
@@ -231,6 +244,11 @@ function Events() {
           </Col>
         </Row>
       </Form>
+      <EventDetailsModal
+        show={showEventModal}
+        onHide={() => setShowEventModal(false)}
+        event={selectedEvent}
+      />
     </Container>
   );
 }
