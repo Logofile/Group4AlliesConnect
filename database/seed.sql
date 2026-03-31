@@ -60,15 +60,15 @@ INSERT INTO Category (name, type) VALUES
 ('Educational Workshop', 'event');
 
 -- 10. Resources
-INSERT INTO Resource (provider_id, category_id, location_id, name, description) VALUES
-(1, 1, 1, 'Emergency Food Pantry', 'Weekly groceries for families in need.'),
-(2, 2, 2, 'Overnight Beds', 'Safe sleeping environment for individuals.'),
-(3, 3, 3, 'Public Computer Lab', 'Free internet and computer access.');
+INSERT INTO Resource (provider_id, category_id, location_id, name, description, image_url, eligibility_requirements) VALUES
+(1, 1, 1, 'Emergency Food Pantry', 'Weekly groceries for families in need.', NULL, NULL),
+(2, 2, 2, 'Overnight Beds', 'Safe sleeping environment for individuals.', NULL, NULL),
+(3, 3, 3, 'Public Computer Lab', 'Free internet and computer access.', NULL, NULL);
 
 -- 11. Events
-INSERT INTO Event (provider_id, category_id, location_id, title, start_datetime, end_datetime, registration_required) VALUES
-(1, 1, 1, 'Community Thanksgiving Dinner', '2026-11-26 17:00:00', '2026-11-26 21:00:00', 'no'),
-(3, 3, 3, 'Coding 101 Workshop', '2026-04-10 10:00:00', '2026-04-10 14:00:00', 'yes');
+INSERT INTO Event (provider_id, category_id, location_id, title, start_datetime, end_datetime, registration_required, image_url, flyer_url) VALUES
+(1, 1, 1, 'Community Thanksgiving Dinner', '2026-11-26 17:00:00', '2026-11-26 21:00:00', 'no', NULL, NULL),
+(3, 3, 3, 'Coding 101 Workshop', '2026-04-10 10:00:00', '2026-04-10 14:00:00', 'yes', NULL, NULL);
 
 -- 12. Event RSVPs
 INSERT INTO EventRSVP (event_id, user_id, status) VALUES

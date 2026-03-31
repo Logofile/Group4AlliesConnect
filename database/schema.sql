@@ -159,6 +159,8 @@ CREATE TABLE Resource (
   name VARCHAR(255) NOT NULL,
   description TEXT NULL,
   hours TEXT NULL,
+  image_url VARCHAR(255) NULL,
+  eligibility_requirements TEXT NULL,
   PRIMARY KEY (resource_id),
   CONSTRAINT fk_resource_provider
     FOREIGN KEY (provider_id) REFERENCES ServiceProvider(provider_id)
@@ -184,6 +186,8 @@ CREATE TABLE Event (
   capacity INT NULL,
   registration_required ENUM('yes','no','unknown') NOT NULL,
   special_instructions TEXT NULL,
+  image_url VARCHAR(255) NULL,
+  flyer_url VARCHAR(255) NULL,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (event_id),
   CONSTRAINT fk_event_provider
