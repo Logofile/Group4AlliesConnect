@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 function Login({ setUser , setRole }) {
-    const [email, setEmail] = useState("");
+    const [username, setUsername] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [userRole, setUserRole] = useState("");
@@ -15,7 +15,7 @@ function Login({ setUser , setRole }) {
         e.preventDefault();
         try {
             const response = await axios.post("http://localhost:5000/api/auth/login", {
-                email,
+                username,
                 password
             });
             console.log("Login successful:", response.data);
@@ -64,7 +64,7 @@ function Login({ setUser , setRole }) {
                             <h5>Username:</h5>
                         </Col>
                         <Col className="d-flex flex-column">
-                            <Form.Control name="username" value={email} type="text" placeholder="Enter username" onChange={(e) => setEmail(e.target.value)} />
+                            <Form.Control name="username" value={username} type="text" placeholder="Enter username" onChange={(e) => setUsername(e.target.value)} />
                         </Col>
                     </Row>
                     <Row className="text-start mb-3 ">
