@@ -1,8 +1,10 @@
-import { Container, Row, Col, Button, Form } from "react-bootstrap";
-import "../App.css";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useState } from "react";
+import { Button, Col, Container, Form, Row } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
+import "../App.css";
+
+const API_URL = process.env.REACT_APP_API_URL;
 
 function Login({ setUser , setRole }) {
     const [username, setUsername] = useState("");
@@ -20,33 +22,35 @@ function Login({ setUser , setRole }) {
             });
             console.log("Login successful:", response.data);
 
-            if (!response.data.roles.includes(userRole)) {
-                throw new Error("User role does not match selected role");
-            }
+      if (!response.data.roles.includes(userRole)) {
+        throw new Error("User role does not match selected role");
+      }
 
-            const profileResponse = await axios.get(`http://localhost:5000/api/users/profile/${response.data.user_id}`);
+      const profileResponse = await axios.get(
+        `${API_URL}/api/users/profile/${response.data.user_id}`,
+      );
 
-            setUser(profileResponse.data);
-            setRole(userRole);
-            localStorage.setItem("user", JSON.stringify(profileResponse.data));
-            localStorage.setItem("role", JSON.stringify(userRole));
+      setUser(profileResponse.data);
+      setRole(userRole);
+      localStorage.setItem("user", JSON.stringify(profileResponse.data));
+      localStorage.setItem("role", JSON.stringify(userRole));
 
-            console.log("Login successful:", profileResponse.data);
-            if (userRole === "volunteer") {
-                navigate("/volunteer");
-            } else if (userRole === "provider") {
-                navigate("/provider");
-            } else if (userRole === "admin") {
-                navigate("/admin");
-            } else {
-                console.warn("Unknown user role:", profileResponse.data.roles);
-                navigate("/");
-            }
-        } catch (error) {
-            console.error("Login failed:", error);
-            setError("Invalid username, password, or role. Please try again.");
-        }
-    };
+      console.log("Login successful:", profileResponse.data);
+      if (userRole === "volunteer") {
+        navigate("/volunteer");
+      } else if (userRole === "provider") {
+        navigate("/provider");
+      } else if (userRole === "admin") {
+        navigate("/admin");
+      } else {
+        console.warn("Unknown user role:", profileResponse.data.roles);
+        navigate("/");
+      }
+    } catch (error) {
+      console.error("Login failed:", error);
+      setError("Invalid username, password, or role. Please try again.");
+    }
+  };
 
     return (
         <Container className="login-container">
