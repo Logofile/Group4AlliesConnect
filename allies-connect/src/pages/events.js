@@ -13,6 +13,8 @@ import {
 
 import "../App.css";
 
+const API_URL = process.env.REACT_APP_API_URL;
+
 function Events() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [eventNameFilter, setEventNameFilter] = useState("");
@@ -35,8 +37,9 @@ function Events() {
   };
 
   useEffect(() => {
-    fetch("http://localhost:5000/api/events")
+    fetch(`${API_URL}/api/events`)
       .then((res) => {
+        // Check for HTTP errors
         if (!res.ok) throw new Error("Failed to fetch events");
         return res.json();
       })
@@ -50,11 +53,12 @@ function Events() {
           type: event.category_name,
           location: `${event.city}, ${event.state}`,
           organization: event.provider_name,
-          status: "Active", // Placeholder; can be derived from data later
+          status: "Active", // TODO can be derived from data later
         }));
         setEvents(mappedEvents);
         setLoading(false);
       })
+      // Catch Network or runtime errors
       .catch((err) => {
         console.error("Error fetching events:", err);
         setError(err.message);
@@ -94,6 +98,7 @@ function Events() {
       matchesOrgName &&
       matchesEventStatus
     );
+    //TODO add volunteer filter when that data is available from backend
   });
 
   const uniqueLocations = [
