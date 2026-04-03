@@ -158,9 +158,9 @@ module.exports = function (app, pool) {
   // Basic login check + return user roles
   app.post("/api/auth/login", async (req, res) => {
     try {
-      const { email, password } = req.body;
+      const { username, password } = req.body;
 
-      if (!email || !password) {
+      if (!username || !password) {
         return res.status(400).json({
           error: "email and password are required",
         });
@@ -168,10 +168,10 @@ module.exports = function (app, pool) {
 
       const [rows] = await pool
         .promise()
-        .query("SELECT * FROM User WHERE email = ?", [email]);
+        .query("SELECT * FROM User WHERE username = ?", [username]);
 
       if (rows.length === 0) {
-        return res.status(401).json({ error: "Invalid email or password" });
+        return res.status(401).json({ error: "Invalid username or password" });
       }
 
       const user = rows[0];
@@ -179,7 +179,7 @@ module.exports = function (app, pool) {
       const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
       if (!passwordMatch) {
-        return res.status(401).json({ error: "Invalid email or password" });
+        return res.status(401).json({ error: "Invalid username or password" });
       }
 
       const [roleRows] = await pool.promise().query(
@@ -195,6 +195,7 @@ module.exports = function (app, pool) {
       res.json({
         message: "Login successful",
         user_id: user.user_id,
+        username: user.username,
         email: user.email,
         status: user.status,
         roles: roles,
