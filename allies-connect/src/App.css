@@ -124,6 +124,13 @@
   padding: 60px 20px;
 }
 
+.event-list-scroll {
+  max-height: 580px;
+  overflow-y: auto;
+  padding-right: 8px;
+  margin-top: 1rem;
+}
+
 .login-container {
   padding: 60px 20px;
 }
