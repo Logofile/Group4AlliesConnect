@@ -11,7 +11,7 @@ import Maps from "./pages/maps";
 import Register from "./pages/register";
 import Provider from "./pages/provider";
 import Volunteer from "./pages/volunteer";
-import Admin from "./pages/admin";
+import Admin from "./pages/adminPage";
 import AuthRoute from "./components/AuthRoute";
 
 function App() {

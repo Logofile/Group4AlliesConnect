@@ -47,23 +47,23 @@ function ReviewLogDataContent() {
 
 const MODAL_TYPE = {
     pendingOrgs: {
-        title: "Pending Organizations",
+        title: "Pending Organization Details",
         Content: PendingOrgsContent
     },
     editAccounts: {
-        title: "Edit Accounts",
+        title: "Edit Account Details",
         Content: EditAccountsContent
     },
     manageResources: {
-        title: "Manage Resources",
+        title: "Manage Resource Details",
         Content: ManageResourcesContent
     },
     manageEvents: {
-        title: "Manage Events",
+        title: "Manage Event Details",
         Content: ManageEventsContent
     },
     manageVolunteers: {
-        title: "Manage Volunteers",
+        title: "Manage Volunteer Details",
         Content: ManageVolunteersContent
     },
     reviewLogData: {
@@ -72,11 +72,13 @@ const MODAL_TYPE = {
     },
 };
 
-function AdminDetailsModal({ show, onHide, org }) {
+function AdminDetailsModal({ show, onHide, type}) {
+    const config = MODAL_TYPE[type];
+
     return (
         <Modal show={show} onHide={onHide}>
             <Modal.Header closeButton>
-                <Modal.Title>Admin Details</Modal.Title>
+                <Modal.Title>{config?.title || ""}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
                 {config && <config.Content />}

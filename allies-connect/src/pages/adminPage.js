@@ -47,7 +47,7 @@ function Admin({ user, setUser , role, setRole }) {
                     </Col>
                 </Row>    
             </div>
-            <AdminModal show={showAdminModal} type={modalType} onHide={() => setModalType("")} />
+            <AdminModal show={!!modalType} type={modalType} onHide={() => setModalType("")} />
         </Container>
     );
 }
