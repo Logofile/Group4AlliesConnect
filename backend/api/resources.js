@@ -17,6 +17,8 @@ module.exports = function (app, pool) {
           r.name,
           r.description,
           r.hours,
+          r.image_url,
+          r.eligibility_requirements,
           s.name AS provider_name,
           c.name AS category_name,
           l.street_address_1,
@@ -70,6 +72,8 @@ module.exports = function (app, pool) {
           r.name,
           r.description,
           r.hours,
+          r.image_url,
+          r.eligibility_requirements,
           s.name AS provider_name,
           s.website,
           s.contact_name,
@@ -128,7 +132,9 @@ module.exports = function (app, pool) {
         location_id,
         name,
         description,
-        hours
+        hours,
+        image_url,
+        eligibility_requirements
       } = req.body;
 
       if (!provider_id || !category_id || !location_id || !name) {
@@ -138,8 +144,8 @@ module.exports = function (app, pool) {
       }
 
       const query = `
-        INSERT INTO Resource (provider_id, category_id, location_id, name, description, hours)
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO Resource (provider_id, category_id, location_id, name, description, hours, image_url, eligibility_requirements)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `;
 
       const [result] = await pool.promise().query(query, [
@@ -148,7 +154,9 @@ module.exports = function (app, pool) {
         location_id,
         name,
         description || null,
-        hours || null
+        hours || null,
+        image_url || null,
+        eligibility_requirements || null
       ]);
 
       await logAudit(pool, 1, "CREATE_RESOURCE", "Resource", result.insertId);
@@ -173,12 +181,14 @@ module.exports = function (app, pool) {
         location_id,
         name,
         description,
-        hours
+        hours,
+        image_url,
+        eligibility_requirements
       } = req.body;
 
       const query = `
         UPDATE Resource
-        SET category_id = ?, location_id = ?, name = ?, description = ?, hours = ?
+        SET category_id = ?, location_id = ?, name = ?, description = ?, hours = ?, image_url = ?, eligibility_requirements = ?
         WHERE resource_id = ?
       `;
 
@@ -188,6 +198,8 @@ module.exports = function (app, pool) {
         name,
         description || null,
         hours || null,
+        image_url || null,
+        eligibility_requirements || null,
         resourceId
       ]);
 
