@@ -166,6 +166,59 @@ module.exports = function (app, pool) {
     res.status(500).json({ error: "Failed to fetch volunteer signups" });
   }
 });
+
+  // GET /api/users/:id/volunteer-hours/export
+// Returns completed volunteer hours as CSV
+app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
+  try {
+    const userId = req.params.id;
+
+    const [rows] = await pool.promise().query(
+      `
+      SELECT
+        vo.title,
+        sp.name AS provider_name,
+        vs.start_datetime,
+        vs.end_datetime,
+        TIMESTAMPDIFF(MINUTE, vs.start_datetime, vs.end_datetime) / 60 AS hours_worked
+      FROM VolunteerSignup s
+      JOIN VolunteerShift vs ON s.shift_id = vs.shift_id
+      JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
+      JOIN ServiceProvider sp ON vo.provider_id = sp.provider_id
+      WHERE s.user_id = ?
+        AND s.status = 'registered'
+        AND vs.end_datetime < NOW()
+      ORDER BY vs.start_datetime ASC
+      `,
+      [userId]
+    );
+
+    let csv = "Opportunity,Provider,Start Time,End Time,Hours Worked\n";
+
+    rows.forEach(row => {
+      const line = [
+        `"${row.title || ""}"`,
+        `"${row.provider_name || ""}"`,
+        `"${row.start_datetime || ""}"`,
+        `"${row.end_datetime || ""}"`,
+        `"${row.hours_worked || 0}"`
+      ].join(",");
+
+      csv += line + "\n";
+    });
+
+    res.setHeader("Content-Type", "text/csv");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="volunteer-hours-user-${userId}.csv"`
+    );
+
+    res.send(csv);
+  } catch (err) {
+    console.error("Error exporting volunteer hours:", err);
+    res.status(500).json({ error: "Failed to export volunteer hours" });
+  }
+});
   
   // GET /api/events/:id/volunteer-signups/count
   // Returns the number of registered volunteer signups tied to an event
