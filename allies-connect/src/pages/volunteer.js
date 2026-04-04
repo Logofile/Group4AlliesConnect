@@ -7,14 +7,17 @@ function Volunteer({ userId }) {
   const [mySignups, setMySignups] = useState([]);
 
   useEffect(() => {
-   axios.get(`/api/users/${userId}/volunteer-signups`)
-      .then(res => setMySignups(res.data))
+    if (!userId) return;
+  
+    axios.get(`/api/users/${userId}/volunteer-signups`)
+      .then(res => setMySignups(res.data || []))
       .catch(err => console.error(err));
   }, [userId]);
 
   const handleCancel = (signupId) => {
     axios.delete(`/api/volunteer-signups/${signupId}`)
-      .then(() => setMySignups(mySignups.filter(s => s.signup_id !== signupId)));
+      .then(() => setMySignups(mySignups.filter(s => s.signup_id !== signupId)))
+      .catch(err => console.error(err));
   };
 
   return (
