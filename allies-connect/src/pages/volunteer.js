@@ -7,8 +7,8 @@ function Volunteer({ userId }) {
   const [mySignups, setMySignups] = useState([]);
 
   useEffect(() => {
-    axios.get(`/api/users/profile/${userId}`)
-      .then(res => setMySignups(res.data.signups || []))
+   axios.get(`/api/users/${userId}/volunteer-signups`)
+      .then(res => setMySignups(res.data))
       .catch(err => console.error(err));
   }, [userId]);
 
