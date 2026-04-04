@@ -2,8 +2,8 @@ const { logAudit, logEmail } = require("../utils/logging");
 const { requireRole } = require("../middleware/permissions");
 
 module.exports = function (app, pool) {
+
   // GET /api/volunteer-opportunities
-  // Optional filters: zip, provider_id, event_id, resource_id
   app.get("/api/volunteer-opportunities", async (req, res) => {
     try {
       const { zip, provider_id, event_id, resource_id } = req.query;
@@ -66,7 +66,6 @@ module.exports = function (app, pool) {
   });
 
   // GET /api/volunteer-opportunities/:id
-  // Returns opportunity details with associated shifts
   app.get("/api/volunteer-opportunities/:id", async (req, res) => {
     try {
       const opportunityId = req.params.id;
@@ -129,99 +128,93 @@ module.exports = function (app, pool) {
   });
 
   // GET /api/users/:id/volunteer-signups
-  // Returns volunteer dashboard signup data
   app.get("/api/users/:id/volunteer-signups", async (req, res) => {
-  try {
-    console.log("Route hit: volunteer signups");
-    console.log("User ID:", req.params.id);
+    try {
+      const userId = req.params.id;
 
-    const userId = req.params.id;
+      const [rows] = await pool.promise().query(
+        `
+        SELECT
+          s.signup_id,
+          s.status,
+          vo.opportunity_id,
+          vo.event_id,
+          vo.title,
+          vs.shift_id,
+          vs.start_datetime,
+          vs.end_datetime,
+          sp.name AS provider_name
+        FROM VolunteerSignup s
+        JOIN VolunteerShift vs ON s.shift_id = vs.shift_id
+        JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
+        JOIN ServiceProvider sp ON vo.provider_id = sp.provider_id
+        WHERE s.user_id = ?
+          AND s.status = 'registered'
+        ORDER BY vs.start_datetime ASC
+        `,
+        [userId]
+      );
 
-    const [rows] = await pool.promise().query(
-      `
-      SELECT
-        s.signup_id,
-        s.status,
-        vo.opportunity_id,
-        vo.event_id,
-        vo.title,
-        vs.shift_id,
-        vs.start_datetime,
-        vs.end_datetime,
-        sp.name AS provider_name
-      FROM VolunteerSignup s
-      JOIN VolunteerShift vs ON s.shift_id = vs.shift_id
-      JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
-      JOIN ServiceProvider sp ON vo.provider_id = sp.provider_id
-      WHERE s.user_id = ?
-        AND s.status = 'registered'
-      ORDER BY vs.start_datetime ASC
-      `,
-      [userId]
-    );
-
-    res.json(rows);
-  } catch (err) {
-    console.error("FULL ERROR fetching volunteer dashboard signups:", err);
-    res.status(500).json({ error: "Failed to fetch volunteer signups" });
-  }
-});
+      res.json(rows);
+    } catch (err) {
+      console.error("Error fetching volunteer dashboard signups:", err);
+      res.status(500).json({ error: "Failed to fetch volunteer signups" });
+    }
+  });
 
   // GET /api/users/:id/volunteer-hours/export
-// Returns completed volunteer hours as CSV
-app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
-  try {
-    const userId = req.params.id;
+  app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
+    try {
+      const userId = req.params.id;
 
-    const [rows] = await pool.promise().query(
-      `
-      SELECT
-        vo.title,
-        sp.name AS provider_name,
-        vs.start_datetime,
-        vs.end_datetime,
-        TIMESTAMPDIFF(MINUTE, vs.start_datetime, vs.end_datetime) / 60 AS hours_worked
-      FROM VolunteerSignup s
-      JOIN VolunteerShift vs ON s.shift_id = vs.shift_id
-      JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
-      JOIN ServiceProvider sp ON vo.provider_id = sp.provider_id
-      WHERE s.user_id = ?
-        AND s.status = 'registered'
-        AND vs.end_datetime < NOW()
-      ORDER BY vs.start_datetime ASC
-      `,
-      [userId]
-    );
+      const [rows] = await pool.promise().query(
+        `
+        SELECT
+          vo.title,
+          sp.name AS provider_name,
+          vs.start_datetime,
+          vs.end_datetime,
+          TIMESTAMPDIFF(MINUTE, vs.start_datetime, vs.end_datetime) / 60 AS hours_worked
+        FROM VolunteerSignup s
+        JOIN VolunteerShift vs ON s.shift_id = vs.shift_id
+        JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
+        JOIN ServiceProvider sp ON vo.provider_id = sp.provider_id
+        WHERE s.user_id = ?
+          AND s.status = 'registered'
+          AND vs.end_datetime < NOW()
+        ORDER BY vs.start_datetime ASC
+        `,
+        [userId]
+      );
 
-    let csv = "Opportunity,Provider,Start Time,End Time,Hours Worked\n";
+      let csv = "Opportunity,Provider,Start Time,End Time,Hours Worked\n";
 
-    rows.forEach(row => {
-      const line = [
-        `"${row.title || ""}"`,
-        `"${row.provider_name || ""}"`,
-        `"${row.start_datetime || ""}"`,
-        `"${row.end_datetime || ""}"`,
-        `"${row.hours_worked || 0}"`
-      ].join(",");
+      rows.forEach(row => {
+        const line = [
+          `"${row.title || ""}"`,
+          `"${row.provider_name || ""}"`,
+          `"${row.start_datetime || ""}"`,
+          `"${row.end_datetime || ""}"`,
+          `"${row.hours_worked || 0}"`
+        ].join(",");
 
-      csv += line + "\n";
-    });
+        csv += line + "\n";
+      });
 
-    res.setHeader("Content-Type", "text/csv");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename="volunteer-hours-user-${userId}.csv"`
-    );
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="volunteer-hours-user-${userId}.csv"`
+      );
 
-    res.send(csv);
-  } catch (err) {
-    console.error("Error exporting volunteer hours:", err);
-    res.status(500).json({ error: "Failed to export volunteer hours" });
-  }
-});
-  
+      res.send(csv);
+    } catch (err) {
+      console.error("Error exporting volunteer hours:", err);
+      res.status(500).json({ error: "Failed to export volunteer hours" });
+    }
+  });
+
   // GET /api/events/:id/volunteer-signups/count
-  // Returns the number of registered volunteer signups tied to an event
   app.get("/api/events/:id/volunteer-signups/count", async (req, res) => {
     try {
       const eventId = req.params.id;
@@ -249,7 +242,6 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
   });
 
   // POST /api/volunteer-signups
-  // Body: { shift_id, user_id }
   app.post("/api/volunteer-signups", async (req, res) => {
     try {
       const { shift_id, user_id } = req.body;
@@ -260,12 +252,9 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
         });
       }
 
-      // Find the event tied to the selected shift
       const [shiftRows] = await pool.promise().query(
         `
-        SELECT
-          vs.shift_id,
-          vo.event_id
+        SELECT vs.shift_id, vo.event_id
         FROM VolunteerShift vs
         JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
         WHERE vs.shift_id = ?
@@ -274,14 +263,11 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
       );
 
       if (shiftRows.length === 0) {
-        return res.status(404).json({
-          error: "Shift not found"
-        });
+        return res.status(404).json({ error: "Shift not found" });
       }
 
       const eventId = shiftRows[0].event_id;
 
-      // If the shift is tied to an event, prevent duplicate event signup
       if (eventId) {
         const [existingSignupRows] = await pool.promise().query(
           `
@@ -303,12 +289,11 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
         }
       }
 
-      const query = `
-        INSERT INTO VolunteerSignup (shift_id, user_id, status)
-        VALUES (?, ?, 'registered')
-      `;
-
-      const [result] = await pool.promise().query(query, [shift_id, user_id]);
+      const [result] = await pool.promise().query(
+        `INSERT INTO VolunteerSignup (shift_id, user_id, status)
+         VALUES (?, ?, 'registered')`,
+        [shift_id, user_id]
+      );
 
       await logEmail(pool, user_id, null, "volunteer_confirmation", "sent");
 
@@ -323,7 +308,6 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
   });
 
   // DELETE /api/volunteer-signups/:id
-  // Cancels a volunteer registration by updating status
   app.delete("/api/volunteer-signups/:id", async (req, res) => {
     try {
       const signupId = req.params.id;
@@ -341,7 +325,6 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
   });
 
   // POST /api/volunteer-opportunities
-  // Creates a volunteer opportunity
   app.post("/api/volunteer-opportunities", requireRole(pool, "provider"), async (req, res) => {
     try {
       const {
@@ -362,23 +345,24 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
         });
       }
 
-      const query = `
+      const [result] = await pool.promise().query(
+        `
         INSERT INTO VolunteerOpportunity
         (provider_id, location_id, event_id, resource_id, title, status, contact_name, contact_email, contact_phone, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-      `;
-
-      const [result] = await pool.promise().query(query, [
-        provider_id,
-        location_id || null,
-        event_id || null,
-        resource_id || null,
-        title,
-        status || "open",
-        contact_name || null,
-        contact_email || null,
-        contact_phone || null
-      ]);
+        `,
+        [
+          provider_id,
+          location_id || null,
+          event_id || null,
+          resource_id || null,
+          title,
+          status || "open",
+          contact_name || null,
+          contact_email || null,
+          contact_phone || null
+        ]
+      );
 
       await logAudit(pool, 1, "CREATE_VOLUNTEER_OPPORTUNITY", "VolunteerOpportunity", result.insertId);
 
@@ -393,10 +377,10 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
   });
 
   // PUT /api/volunteer-opportunities/:id
-  // Updates a volunteer opportunity
   app.put("/api/volunteer-opportunities/:id", requireRole(pool, "provider"), async (req, res) => {
     try {
       const opportunityId = req.params.id;
+
       const {
         location_id,
         event_id,
@@ -408,31 +392,24 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
         contact_phone
       } = req.body;
 
-      const query = `
+      await pool.promise().query(
+        `
         UPDATE VolunteerOpportunity
-        SET
-          location_id = ?,
-          event_id = ?,
-          resource_id = ?,
-          title = ?,
-          status = ?,
-          contact_name = ?,
-          contact_email = ?,
-          contact_phone = ?
+        SET location_id = ?, event_id = ?, resource_id = ?, title = ?, status = ?, contact_name = ?, contact_email = ?, contact_phone = ?
         WHERE opportunity_id = ?
-      `;
-
-      await pool.promise().query(query, [
-        location_id || null,
-        event_id || null,
-        resource_id || null,
-        title,
-        status,
-        contact_name || null,
-        contact_email || null,
-        contact_phone || null,
-        opportunityId
-      ]);
+        `,
+        [
+          location_id || null,
+          event_id || null,
+          resource_id || null,
+          title,
+          status,
+          contact_name || null,
+          contact_email || null,
+          contact_phone || null,
+          opportunityId
+        ]
+      );
 
       await logAudit(pool, 1, "UPDATE_VOLUNTEER_OPPORTUNITY", "VolunteerOpportunity", opportunityId);
 
@@ -444,7 +421,6 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
   });
 
   // DELETE /api/volunteer-opportunities/:id
-  // Deletes a volunteer opportunity
   app.delete("/api/volunteer-opportunities/:id", requireRole(pool, "provider"), async (req, res) => {
     try {
       const opportunityId = req.params.id;
@@ -462,4 +438,5 @@ app.get("/api/users/:id/volunteer-hours/export", async (req, res) => {
       res.status(500).json({ error: "Failed to delete volunteer opportunity" });
     }
   });
+
 };
