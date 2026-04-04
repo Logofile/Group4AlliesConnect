@@ -128,6 +128,41 @@ module.exports = function (app, pool) {
     }
   });
 
+  // GET /api/users/:id/volunteer-signups
+  // Returns volunteer dashboard signup data
+  app.get("/api/users/:id/volunteer-signups", async (req, res) => {
+    try {
+      const userId = req.params.id;
+  
+      const [rows] = await pool.promise().query(
+        `
+        SELECT
+          s.signup_id,
+          s.status,
+          vo.opportunity_id,
+          vo.event_id,
+          vo.title,
+          vs.shift_id,
+          vs.start_datetime,
+          vs.end_datetime,
+          sp.name AS provider_name
+        FROM VolunteerSignup s
+        JOIN VolunteerShift vs ON s.shift_id = vs.shift_id
+        JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
+        JOIN ServiceProvider sp ON vo.provider_id = sp.provider_id
+        WHERE s.user_id = ?
+        ORDER BY vs.start_datetime ASC
+        `,
+        [userId]
+      );
+  
+      res.json(rows);
+    } catch (err) {
+      console.error("Error fetching volunteer dashboard signups:", err);
+      res.status(500).json({ error: "Failed to fetch volunteer signups" });
+    }
+  });
+  
   // GET /api/events/:id/volunteer-signups/count
   // Returns the number of registered volunteer signups tied to an event
   app.get("/api/events/:id/volunteer-signups/count", async (req, res) => {
