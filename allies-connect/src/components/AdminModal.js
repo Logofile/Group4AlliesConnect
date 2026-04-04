@@ -4,8 +4,38 @@ import { useEffect, useState} from "react";
 import axios from "axios";
 import AdminDetailsModal from "./AdminDetailsModal";
 
+function useTableFeatures(data, searchField) {
+    const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
+    const [searchQuery, setSearchQuery] = useState("");
+
+    const handleSort = (key) => {
+        setSortConfig(prevConfig => ({
+            key,
+            direction: prevConfig.key === key && prevConfig.direction === "asc" ? "desc" : "asc"
+        }));
+    };
+
+    const sortSymbol = (key) => {
+        if (sortConfig.key === key) {
+            return sortConfig.direction === "asc" ? " ▲" : " ▼";
+        }
+        return " ";
+    }
+
+    const sortedData = [...data].sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+            return sortConfig.direction === "asc" ? -1 : 1;
+        }
+        return 0;
+    })
+    .filter(item => item[searchField].toLowerCase().includes(searchQuery.toLowerCase()));
+
+    return { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery };
+}
+
 function PendingOrgsContent({ onViewDetails }) {
     const [pendingOrgs, setPendingOrgs] = useState([]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(pendingOrgs, ["name", "email", "application_date", "ein"]);
 
     useEffect(() => {
         fetchPendingOrgs();
@@ -47,18 +77,27 @@ function PendingOrgsContent({ onViewDetails }) {
 
     return (
         <>
+            <input type="text" className="form-control mb-3" placeholder="Search by name, email, date, or EIN" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             <Table hover className="text-center">
                 <thead>
                     <tr className="text-center">
-                        <th>Organization</th>
-                        <th>Email</th>
-                        <th>Date</th>
-                        <th>EIN</th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("name")}>
+                            Organization {sortSymbol("name")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("email")}>
+                            Email {sortSymbol("email")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("application_date")}>
+                            Date {sortSymbol("application_date")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("ein")}>
+                            EIN {sortSymbol("ein")}
+                        </th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {pendingOrgs.map((org) => (
+                    {sortedData.map((org) => (
                         <tr key={org.provider_id} className="text-center align-middle">
                             <td>{org.name}</td>
                             <td>{org.email}</td>
@@ -85,6 +124,7 @@ function PendingOrgsContent({ onViewDetails }) {
 
 function EditAccountsContent({ onViewDetails }) {
     const [accounts, setAccounts] = useState([]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(accounts, ["name", "email", "roles", "date_created", "date_updated"]);
 
     useEffect(() => {
         fetchAccounts();
@@ -104,19 +144,30 @@ function EditAccountsContent({ onViewDetails }) {
 
     return (
         <>
+            <input type="text" className="form-control mb-3" placeholder="Search by name, email, or roles" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             <Table hover className="text-center">
                 <thead>
                     <tr className="text-center">
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Roles</th>
-                        <th>Date Created</th>
-                        <th>Date Updated</th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("name")}>
+                            Name {sortSymbol("name")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("email")}>
+                            Email {sortSymbol("email")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("roles")}>
+                            Roles {sortSymbol("roles")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_created")}>
+                            Date Created {sortSymbol("date_created")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_updated")}>
+                            Date Updated {sortSymbol("date_updated")}
+                        </th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {accounts.map((account) => (
+                    {sortedData.map((account) => (
                         <tr key={account.username} className="text-center align-middle">
                             <td>{account.name}</td>
                             <td>{account.email}</td>
@@ -138,6 +189,7 @@ function EditAccountsContent({ onViewDetails }) {
 
 function ManageResourcesContent({ onViewDetails }) {
     const [resources, setResources] = useState([]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(resources, ["name", "location", "organization", "date_created", "date_updated"]);
 
     useEffect(() => {
         fetchResources();
@@ -157,19 +209,30 @@ function ManageResourcesContent({ onViewDetails }) {
 
     return (
         <>
+            <input type="text" className="form-control mb-3" placeholder="Search by name, location, or organization" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             <Table hover className="text-center">
                 <thead>
                     <tr className="text-center">
-                        <th>Name</th>
-                        <th>Location</th>
-                        <th>Organization</th>
-                        <th>Date Created</th>
-                        <th>Date Updated</th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("name")}>
+                            Name {sortSymbol("name")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("location")}>
+                            Location {sortSymbol("location")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("organization")}>
+                            Organization {sortSymbol("organization")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_created")}>
+                            Date Created {sortSymbol("date_created")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_updated")}>
+                            Date Updated {sortSymbol("date_updated")}
+                        </th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {resources.map((resource) => (
+                    {sortedData.map((resource) => (
                         <tr key={resource.id} className="text-center align-middle">
                             <td>{resource.name}</td>
                             <td>{resource.location}</td>
@@ -191,6 +254,7 @@ function ManageResourcesContent({ onViewDetails }) {
 
 function ManageEventsContent({ onViewDetails }) {
     const [events, setEvents] = useState([]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(events, ["name", "location", "organization", "date_created", "date_updated"]);
 
     useEffect(() => {
         fetchEvents();
@@ -210,19 +274,30 @@ function ManageEventsContent({ onViewDetails }) {
 
     return (
         <>
+            <input type="text" className="form-control mb-3" placeholder="Search by name, location, or organization" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             <Table hover className="text-center">
                 <thead>
                     <tr className="text-center">
-                        <th>Name</th>
-                        <th>Location</th>
-                        <th>Organization</th>
-                        <th>Date Created</th>
-                        <th>Date Updated</th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("name")}>
+                            Name {sortSymbol("name")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("location")}>
+                            Location {sortSymbol("location")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("organization")}>
+                            Organization {sortSymbol("organization")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_created")}>
+                            Date Created {sortSymbol("date_created")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_updated")}>
+                            Date Updated {sortSymbol("date_updated")}
+                        </th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {events.map((event) => (
+                    {sortedData.map((event) => (
                         <tr key={event.id} className="text-center align-middle">
                             <td>{event.name}</td>
                             <td>{event.location}</td>
@@ -244,6 +319,7 @@ function ManageEventsContent({ onViewDetails }) {
 
 function ManageVolunteersContent({ onViewDetails }) {
     const [volunteers, setVolunteers] = useState([]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(volunteers, ["name", "email", "roles", "date_created", "date_updated"]);
 
     useEffect(() => {
         fetchVolunteers();
@@ -263,19 +339,30 @@ function ManageVolunteersContent({ onViewDetails }) {
 
     return (
         <>
+            <input type="text" className="form-control mb-3" placeholder="Search by name, email, or roles" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             <Table hover className="text-center">
                 <thead>
                     <tr className="text-center">
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Roles</th>
-                        <th>Date Created</th>
-                        <th>Date Updated</th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("name")}>
+                            Name {sortSymbol("name")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("email")}>
+                            Email {sortSymbol("email")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("roles")}>
+                            Roles {sortSymbol("roles")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_created")}>
+                            Date Created {sortSymbol("date_created")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_updated")}>
+                            Date Updated {sortSymbol("date_updated")}
+                        </th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {volunteers.map((volunteer) => (
+                    {sortedData.map((volunteer) => (
                         <tr key={volunteer.username} className="text-center align-middle">
                             <td>{volunteer.name}</td>
                             <td>{volunteer.email}</td>
@@ -297,6 +384,7 @@ function ManageVolunteersContent({ onViewDetails }) {
 
 function ReviewLogDataContent({ onViewDetails }) {
     const [logs, setLogs] = useState([]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(logs, ["name", "email", "data", "message"]);
 
     useEffect(() => {
         fetchLogs();
@@ -316,18 +404,27 @@ function ReviewLogDataContent({ onViewDetails }) {
 
     return (
         <>
+            <input type="text" className="form-control mb-3" placeholder="Search by name, email, date, or message" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             <Table hover className="text-center">
                 <thead>
                     <tr className="text-center">
-                        <th>Name</th>
-                        <th>Email</th>
-                        <th>Date</th>
-                        <th>Message</th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("name")}>
+                            Name {sortSymbol("name")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("email")}>
+                            Email {sortSymbol("email")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date")}>
+                            Date {sortSymbol("date")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("message")}>
+                            Message {sortSymbol("message")}
+                        </th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {logs.map((log) => (
+                    {sortedData.map((log) => (
                         <tr key={log.id} className="text-center align-middle">
                             <td>{log.name}</td>
                             <td>{log.email}</td>
