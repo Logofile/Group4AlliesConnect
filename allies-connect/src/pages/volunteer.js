@@ -52,18 +52,30 @@ function Volunteer({ userId }) {
                 </tr>
               </thead>
               <tbody>
-                {mySignups.map(signup => (
-                  <tr key={signup.signup_id}>
-                    <td>{signup.title}</td>
-                    <td>{new Date(signup.start_datetime).toLocaleString()}</td>
-                    <td><span className="badge bg-success">{signup.status}</span></td>
-                    <td>
-                      <Button variant="danger" size="sm" onClick={() => handleCancel(signup.signup_id)}>
-                        Cancel
-                      </Button>
+                {mySignups.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="text-center">
+                      No upcoming shifts
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  mySignups.map(signup => (
+                    <tr key={signup.signup_id}>
+                      <td>{signup.title}</td>
+                      <td>{new Date(signup.start_datetime).toLocaleString()}</td>
+                      <td><span className="badge bg-success">{signup.status}</span></td>
+                      <td>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleCancel(signup.signup_id)}
+                        >
+                          Cancel
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </Table>
           </Card>
