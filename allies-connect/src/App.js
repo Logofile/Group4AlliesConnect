@@ -18,7 +18,7 @@ function App() {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
-  
+
   const [role, setRole] = useState(() => {
     const storedRole = localStorage.getItem("role");
     return storedRole ? JSON.parse(storedRole) : "";
@@ -28,16 +28,20 @@ function App() {
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <BrowserRouter>
         <MyNavbar user={user} setUser={setUser} role={role} setRole={setRole} />
+
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/maps" element={<Maps />} />
           <Route path="/login" element={<Login setUser={setUser} setRole={setRole} />} />
           <Route path="/events" element={<Events />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/provider" element={<Provider />} />
-          <Route path="/volunteer" element={<Volunteer />} />
-          <Route path="/admin" element={<Admin />} />
+
+          {/* Pass userId to dashboards */}
+          <Route path="/provider" element={<Provider userId={user?.user_id} />} />
+          <Route path="/volunteer" element={<Volunteer userId={1} />} />
+          <Route path="/admin" element={<Admin userId={user?.user_id} />} />
         </Routes>
+
       </BrowserRouter>
     </LocalizationProvider>
   );
