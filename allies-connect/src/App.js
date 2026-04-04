@@ -38,7 +38,7 @@ function App() {
 
           {/* Pass userId to dashboards */}
           <Route path="/provider" element={<Provider userId={user?.user_id} />} />
-          <Route path="/volunteer" element={<Volunteer userId={1} />} />
+          <Route path="/volunteer" element={<Volunteer userId={user?.user_id} />} />
           <Route path="/admin" element={<Admin userId={user?.user_id} />} />
         </Routes>
 
