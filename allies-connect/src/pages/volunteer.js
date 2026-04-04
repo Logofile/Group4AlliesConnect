@@ -27,7 +27,18 @@ function Volunteer({ userId }) {
       <Row>
         <Col md={12}>
           <Card className="feature-box">
+          <div className="d-flex justify-content-between align-items-center">
             <h3>My Upcoming Shifts</h3>
+          
+            <Button
+              variant="outline-primary"
+              onClick={() =>
+                window.open(`/api/users/${userId}/volunteer-hours/export`, "_blank")
+              }
+            >
+              Export Hours
+            </Button>
+          </div>
             <Table responsive hover className="mt-3">
               <thead>
                 <tr>
