@@ -7,14 +7,17 @@ function Volunteer({ userId }) {
   const [mySignups, setMySignups] = useState([]);
 
   useEffect(() => {
-    axios.get(`/api/users/profile/${userId}`)
-      .then(res => setMySignups(res.data.signups || []))
+    if (!userId) return;
+  
+    axios.get(`/api/users/${userId}/volunteer-signups`)
+      .then(res => setMySignups(res.data || []))
       .catch(err => console.error(err));
   }, [userId]);
 
   const handleCancel = (signupId) => {
     axios.delete(`/api/volunteer-signups/${signupId}`)
-      .then(() => setMySignups(mySignups.filter(s => s.signup_id !== signupId)));
+      .then(() => setMySignups(mySignups.filter(s => s.signup_id !== signupId)))
+      .catch(err => console.error(err));
   };
 
   return (
@@ -27,7 +30,18 @@ function Volunteer({ userId }) {
       <Row>
         <Col md={12}>
           <Card className="feature-box">
+          <div className="d-flex justify-content-between align-items-center">
             <h3>My Upcoming Shifts</h3>
+          
+            <Button
+              variant="outline-primary"
+              onClick={() =>
+                window.open(`/api/users/${userId}/volunteer-hours/export`, "_blank")
+              }
+            >
+              Export Hours
+            </Button>
+          </div>
             <Table responsive hover className="mt-3">
               <thead>
                 <tr>
@@ -38,18 +52,30 @@ function Volunteer({ userId }) {
                 </tr>
               </thead>
               <tbody>
-                {mySignups.map(signup => (
-                  <tr key={signup.signup_id}>
-                    <td>{signup.title}</td>
-                    <td>{new Date(signup.start_datetime).toLocaleString()}</td>
-                    <td><span className="badge bg-success">{signup.status}</span></td>
-                    <td>
-                      <Button variant="danger" size="sm" onClick={() => handleCancel(signup.signup_id)}>
-                        Cancel
-                      </Button>
+                {mySignups.length === 0 ? (
+                  <tr>
+                    <td colSpan="4" className="text-center">
+                      No upcoming shifts
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  mySignups.map(signup => (
+                    <tr key={signup.signup_id}>
+                      <td>{signup.title}</td>
+                      <td>{new Date(signup.start_datetime).toLocaleString()}</td>
+                      <td><span className="badge bg-success">{signup.status}</span></td>
+                      <td>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => handleCancel(signup.signup_id)}
+                        >
+                          Cancel
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </Table>
           </Card>

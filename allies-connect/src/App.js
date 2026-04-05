@@ -19,7 +19,7 @@ function App() {
     const storedUser = localStorage.getItem("user");
     return storedUser ? JSON.parse(storedUser) : null;
   });
-  
+
   const [role, setRole] = useState(() => {
     const storedRole = localStorage.getItem("role");
     return storedRole ? JSON.parse(storedRole) : "";
@@ -29,6 +29,7 @@ function App() {
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <BrowserRouter>
         <MyNavbar user={user} setUser={setUser} role={role} setRole={setRole} />
+
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/maps" element={<Maps />} />
@@ -53,6 +54,7 @@ function App() {
             } 
           />
         </Routes>
+
       </BrowserRouter>
     </LocalizationProvider>
   );
