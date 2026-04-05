@@ -1,86 +1,56 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Button, Table, Card } from 'react-bootstrap';
-import axios from 'axios';
-import '../App.css';
+import { useState } from "react";
+import { Col, Container, Row } from "react-bootstrap";
+import "../App.css";
 
-function Volunteer({ userId }) {
-  const [mySignups, setMySignups] = useState([]);
-
-  useEffect(() => {
-    if (!userId) return;
-  
-    axios.get(`/api/users/${userId}/volunteer-signups`)
-      .then(res => setMySignups(res.data || []))
-      .catch(err => console.error(err));
-  }, [userId]);
-
-  const handleCancel = (signupId) => {
-    axios.delete(`/api/volunteer-signups/${signupId}`)
-      .then(() => setMySignups(mySignups.filter(s => s.signup_id !== signupId)))
-      .catch(err => console.error(err));
-  };
+function Volunteer({ user, setUser, role, setRole }) {
+  const [] = useState(false);
 
   return (
-    <Container className="home-container">
-      <div className="text-container mb-4">
-        <h1>Volunteer Dashboard</h1>
-        <p>Manage your active commitments and track your hours.</p>
+    <Container className="volunteer-container">
+      <div className="text-container mt-5 mb-5">
+        <h1>{user?.first_name || "Volunteer"} Dashboard</h1>
       </div>
-
-      <Row>
-        <Col md={12}>
-          <Card className="feature-box">
-          <div className="d-flex justify-content-between align-items-center">
-            <h3>My Upcoming Shifts</h3>
-          
-            <Button
-              variant="outline-primary"
-              onClick={() =>
-                window.open(`/api/users/${userId}/volunteer-hours/export`, "_blank")
-              }
-            >
-              Export Hours
-            </Button>
-          </div>
-            <Table responsive hover className="mt-3">
-              <thead>
-                <tr>
-                  <th>Opportunity</th>
-                  <th>Date & Time</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {mySignups.length === 0 ? (
-                  <tr>
-                    <td colSpan="4" className="text-center">
-                      No upcoming shifts
-                    </td>
-                  </tr>
-                ) : (
-                  mySignups.map(signup => (
-                    <tr key={signup.signup_id}>
-                      <td>{signup.title}</td>
-                      <td>{new Date(signup.start_datetime).toLocaleString()}</td>
-                      <td><span className="badge bg-success">{signup.status}</span></td>
-                      <td>
-                        <Button
-                          variant="danger"
-                          size="sm"
-                          onClick={() => handleCancel(signup.signup_id)}
-                        >
-                          Cancel
-                        </Button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </Table>
-          </Card>
-        </Col>
-      </Row>
+      <div className="mb-4">
+        <h3 className="border-bottom pb-2 mb-3">Manage Volunteer Status</h3>
+        <Row className="d-flex">
+          <Col md={5} className="d-flex mb-2">
+            <button className="btn-gold flex-grow-1">
+              Manage Subscribed Organizaitons
+            </button>
+          </Col>
+          <Col md={5} className="d-flex mb-2">
+            <button className="btn-white flex-grow-1">Edit Availability</button>
+          </Col>
+          <Col md={5} className="d-flex mb-2">
+            <button className="btn-white flex-grow-1">
+              Contact Information
+            </button>
+          </Col>
+        </Row>
+      </div>
+      <div className="mb-4">
+        <h3 className="border-bottom pb-2 mb-3">Signup Management</h3>
+        <Row className="d-flex">
+          <Col md={5} className="d-flex mb-2">
+            <button className="btn-gold flex-grow-1">
+              Review Event Signups
+            </button>
+          </Col>
+          <Col md={5} className="d-flex mb-2">
+            <button className="btn-gold flex-grow-1">View Shifts</button>
+          </Col>
+        </Row>
+      </div>
+      <div className="mb-4">
+        <h3 className="border-bottom pb-2 mb-3">Export Volunteer Data</h3>
+        <Row className="d-flex">
+          <Col md={5} className="d-flex mb-2">
+            <button className="btn-gold flex-grow-1">
+              Export Volunteer Hours
+            </button>
+          </Col>
+        </Row>
+      </div>
     </Container>
   );
 }
