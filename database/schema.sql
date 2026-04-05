@@ -161,6 +161,10 @@ CREATE TABLE Resource (
   hours TEXT NULL,
   image_url VARCHAR(255) NULL,
   eligibility_requirements TEXT NULL,
+  phone VARCHAR(20) NULL,
+  website VARCHAR(255) NULL,
+  languages TEXT NULL,
+  social_media_links TEXT NULL,
   PRIMARY KEY (resource_id),
   CONSTRAINT fk_resource_provider
     FOREIGN KEY (provider_id) REFERENCES ServiceProvider(provider_id)

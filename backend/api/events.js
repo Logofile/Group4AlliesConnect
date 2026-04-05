@@ -1,4 +1,5 @@
 const { logEmail } = require("../utils/logging");
+const { geocodeAddress } = require("../utils/geocode");
 
 module.exports = function (app, pool) {
   // GET /api/events
@@ -128,6 +129,128 @@ module.exports = function (app, pool) {
     }
   });
 
+  // POST /api/events
+  // Body: { title, provider_id, street_address, city, state, zip, event_date, start_datetime, end_datetime, description, category_ids, shifts }
+  app.post("/api/events", async (req, res) => {
+    const conn = await pool.promise().getConnection();
+    try {
+      const {
+        title,
+        provider_id,
+        street_address,
+        city,
+        state,
+        zip,
+        event_date,
+        start_datetime,
+        end_datetime,
+        description,
+        category_ids,
+        shifts,
+      } = req.body;
+
+      if (
+        !title ||
+        !provider_id ||
+        !street_address ||
+        !city ||
+        !state ||
+        !zip ||
+        !start_datetime ||
+        !end_datetime ||
+        !category_ids ||
+        category_ids.length === 0
+      ) {
+        return res.status(400).json({ error: "Missing required fields." });
+      }
+
+      await conn.beginTransaction();
+
+      // Geocode the address to get lat/lng
+      const coords = await geocodeAddress({
+        street: street_address,
+        city,
+        state,
+        zip,
+      });
+
+      // Check if a Location with this lat/lng already exists
+      let locationId;
+      if (coords?.lat != null && coords?.lng != null) {
+        const [existing] = await conn.query(
+          `SELECT location_id FROM Location WHERE latitude = ? AND longitude = ?`,
+          [coords.lat, coords.lng],
+        );
+        if (existing.length > 0) {
+          locationId = existing[0].location_id;
+        }
+      }
+
+      // Create a new Location if no match was found
+      if (!locationId) {
+        const [locResult] = await conn.query(
+          `INSERT INTO Location (street_address_1, city, state, zip, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            street_address,
+            city,
+            state,
+            zip,
+            coords?.lat || null,
+            coords?.lng || null,
+          ],
+        );
+        locationId = locResult.insertId;
+      }
+
+      // Insert event (uses the first category_id)
+      const categoryId = category_ids[0];
+      const [eventResult] = await conn.query(
+        `INSERT INTO Event (provider_id, category_id, location_id, title, event_date, start_datetime, end_datetime, description)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          provider_id,
+          categoryId,
+          locationId,
+          title,
+          event_date,
+          start_datetime,
+          end_datetime,
+          description || null,
+        ],
+      );
+      const eventId = eventResult.insertId;
+
+      // If shifts are provided, create a VolunteerOpportunity and insert shifts
+      if (Array.isArray(shifts) && shifts.length > 0) {
+        const [oppResult] = await conn.query(
+          `INSERT INTO VolunteerOpportunity (provider_id, location_id, event_id, title, status)
+           VALUES (?, ?, ?, ?, 'open')`,
+          [provider_id, locationId, eventId, `${title} - Volunteer Shifts`],
+        );
+        const opportunityId = oppResult.insertId;
+
+        for (const shift of shifts) {
+          await conn.query(
+            `INSERT INTO VolunteerShift (opportunity_id, start_datetime, end_datetime, capacity)
+             VALUES (?, ?, ?, ?)`,
+            [opportunityId, shift.start_time, shift.end_time, 0],
+          );
+        }
+      }
+
+      await conn.commit();
+      res
+        .status(201)
+        .json({ event_id: eventId, message: "Event created successfully." });
+    } catch (err) {
+      await conn.rollback();
+      console.error("Error creating event:", err);
+      res.status(500).json({ error: "Failed to create event." });
+    } finally {
+      conn.release();
+    }
+  });
+
   // POST /api/events/:id/rsvp
   // Body: { userId, status }
   app.post("/api/events/:id/rsvp", async (req, res) => {
@@ -137,13 +260,13 @@ module.exports = function (app, pool) {
 
       if (!userId || !status) {
         return res.status(400).json({
-          error: "userId and status are required"
+          error: "userId and status are required",
         });
       }
 
       if (!["yes", "no"].includes(status)) {
         return res.status(400).json({
-          error: "status must be 'yes' or 'no'"
+          error: "status must be 'yes' or 'no'",
         });
       }
 
@@ -158,7 +281,7 @@ module.exports = function (app, pool) {
       await logEmail(pool, userId, eventId, "event_confirmation", "sent");
 
       res.status(201).json({
-        message: "RSVP recorded successfully"
+        message: "RSVP recorded successfully",
       });
     } catch (err) {
       console.error("Error recording RSVP:", err);

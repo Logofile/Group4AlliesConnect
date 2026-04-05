@@ -1,9 +1,12 @@
 import { useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 import "../App.css";
+import VolunteerModal from "../components/VolunteerModal";
 
 function Volunteer({ user, setUser, role, setRole }) {
-  const [] = useState(false);
+  const [modalType, setModalType] = useState("");
+  const navigate = useNavigate();
 
   return (
     <Container className="volunteer-container">
@@ -14,15 +17,26 @@ function Volunteer({ user, setUser, role, setRole }) {
         <h3 className="border-bottom pb-2 mb-3">Manage Volunteer Status</h3>
         <Row className="d-flex">
           <Col md={5} className="d-flex mb-2">
-            <button className="btn-gold flex-grow-1">
-              Manage Subscribed Organizaitons
+            <button
+              className="btn-gold flex-grow-1"
+              onClick={() => setModalType("subscribedOrgs")}
+            >
+              Manage Subscribed Organizations
             </button>
           </Col>
           <Col md={5} className="d-flex mb-2">
-            <button className="btn-white flex-grow-1">Edit Availability</button>
+            <button
+              className="btn-white flex-grow-1"
+              onClick={() => setModalType("editAvailability")}
+            >
+              Edit Availability
+            </button>
           </Col>
           <Col md={5} className="d-flex mb-2">
-            <button className="btn-white flex-grow-1">
+            <button
+              className="btn-white flex-grow-1"
+              onClick={() => setModalType("contactInfo")}
+            >
               Contact Information
             </button>
           </Col>
@@ -32,12 +46,28 @@ function Volunteer({ user, setUser, role, setRole }) {
         <h3 className="border-bottom pb-2 mb-3">Signup Management</h3>
         <Row className="d-flex">
           <Col md={5} className="d-flex mb-2">
-            <button className="btn-gold flex-grow-1">
+            <button
+              className="btn-gold flex-grow-1"
+              onClick={() => setModalType("reviewSignups")}
+            >
               Review Event Signups
             </button>
           </Col>
           <Col md={5} className="d-flex mb-2">
-            <button className="btn-gold flex-grow-1">View Shifts</button>
+            <button
+              className="btn-white flex-grow-1"
+              onClick={() => setModalType("viewShifts")}
+            >
+              View Shifts
+            </button>
+          </Col>
+          <Col md={5} className="d-flex mb-2">
+            <button
+              className="btn-white flex-grow-1"
+              onClick={() => navigate("/events")}
+            >
+              View Volunteer opportunities
+            </button>
           </Col>
         </Row>
       </div>
@@ -45,12 +75,21 @@ function Volunteer({ user, setUser, role, setRole }) {
         <h3 className="border-bottom pb-2 mb-3">Export Volunteer Data</h3>
         <Row className="d-flex">
           <Col md={5} className="d-flex mb-2">
-            <button className="btn-gold flex-grow-1">
+            <button
+              className="btn-gold flex-grow-1"
+              onClick={() => setModalType("exportHours")}
+            >
               Export Volunteer Hours
             </button>
           </Col>
         </Row>
       </div>
+      <VolunteerModal
+        show={!!modalType}
+        type={modalType}
+        userId={user?.user_id}
+        onHide={() => setModalType("")}
+      />
     </Container>
   );
 }
