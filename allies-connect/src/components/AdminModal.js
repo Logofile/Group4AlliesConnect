@@ -4,7 +4,7 @@ import { useEffect, useState} from "react";
 import axios from "axios";
 import AdminDetailsModal from "./AdminDetailsModal";
 
-function useTableFeatures(data, searchField) {
+function useTableDataProcessing(data, searchField) {
     const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -28,14 +28,14 @@ function useTableFeatures(data, searchField) {
         }
         return 0;
     })
-    .filter(item => item[searchField].toLowerCase().includes(searchQuery.toLowerCase()));
+    .filter(item => String(item[searchField] ?? "").toLowerCase().includes(searchQuery.toLowerCase()));
 
     return { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery };
 }
 
 function PendingOrgsContent({ onViewDetails }) {
     const [pendingOrgs, setPendingOrgs] = useState([]);
-    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(pendingOrgs, ["name", "email", "application_date", "ein"]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(pendingOrgs, ["name", "email", "application_date", "ein"]);
 
     useEffect(() => {
         fetchPendingOrgs();
@@ -124,7 +124,7 @@ function PendingOrgsContent({ onViewDetails }) {
 
 function EditAccountsContent({ onViewDetails }) {
     const [accounts, setAccounts] = useState([]);
-    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(accounts, ["name", "email", "roles", "date_created", "date_updated"]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(accounts, ["name", "email", "roles", "date_created", "date_updated"]);
 
     useEffect(() => {
         fetchAccounts();
@@ -189,7 +189,7 @@ function EditAccountsContent({ onViewDetails }) {
 
 function ManageResourcesContent({ onViewDetails }) {
     const [resources, setResources] = useState([]);
-    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(resources, ["name", "location", "organization", "date_created", "date_updated"]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(resources, ["name", "location", "organization", "date_created", "date_updated"]);
 
     useEffect(() => {
         fetchResources();
@@ -197,9 +197,10 @@ function ManageResourcesContent({ onViewDetails }) {
 
     const fetchResources = async () => {
         try {
-            const response = await fetch("http://localhost:5000/api/admin/resources");
+            const response = await fetch("http://localhost:5000/api/resources");
             const data = await response.json();
             setResources(Array.isArray(data) ? data : []);
+            console.log("Fetched resources:", data);
         } catch (error) {
             console.error("Error fetching resources:", error);
             alert("Error fetching resources.");
@@ -222,23 +223,23 @@ function ManageResourcesContent({ onViewDetails }) {
                         <th style={{ cursor: "pointer" }} onClick={() => handleSort("organization")}>
                             Organization {sortSymbol("organization")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_created")}>
-                            Date Created {sortSymbol("date_created")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("event_date")}>
+                            Event Date {sortSymbol("event_date")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_updated")}>
-                            Date Updated {sortSymbol("date_updated")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("category_id")}>
+                            Category {sortSymbol("category_id")}
                         </th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sortedData.map((resource) => (
-                        <tr key={resource.id} className="text-center align-middle">
+                        <tr key={resource.resource_id} className="text-center align-middle">
                             <td>{resource.name}</td>
                             <td>{resource.location}</td>
                             <td>{resource.organization}</td>
-                            <td>{resource.date_created}</td>
-                            <td>{resource.date_updated}</td>
+                            <td>{resource.event_date}</td>
+                            <td>{resource.category_id}</td>
                             <td>
                                 <button className="outline-warning me-2" onClick={() => onViewDetails("editResources", resource)}>
                                     View Resource Details
@@ -254,7 +255,7 @@ function ManageResourcesContent({ onViewDetails }) {
 
 function ManageEventsContent({ onViewDetails }) {
     const [events, setEvents] = useState([]);
-    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(events, ["name", "location", "organization", "date_created", "date_updated"]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(events, ["name", "location", "organization", "date_created", "date_updated"]);
 
     useEffect(() => {
         fetchEvents();
@@ -262,7 +263,7 @@ function ManageEventsContent({ onViewDetails }) {
 
     const fetchEvents = async () => {
         try {
-            const response = await fetch("http://localhost:5000/api/admin/events");
+            const response = await fetch("http://localhost:5000/api/events");
             const data = await response.json();
             setEvents(Array.isArray(data) ? data : []);
         } catch (error) {
@@ -278,8 +279,8 @@ function ManageEventsContent({ onViewDetails }) {
             <Table hover className="text-center">
                 <thead>
                     <tr className="text-center">
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("name")}>
-                            Name {sortSymbol("name")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("title")}>
+                            Title {sortSymbol("title")}
                         </th>
                         <th style={{ cursor: "pointer" }} onClick={() => handleSort("location")}>
                             Location {sortSymbol("location")}
@@ -287,23 +288,23 @@ function ManageEventsContent({ onViewDetails }) {
                         <th style={{ cursor: "pointer" }} onClick={() => handleSort("organization")}>
                             Organization {sortSymbol("organization")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_created")}>
-                            Date Created {sortSymbol("date_created")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("event_date")}>
+                            Event Date {sortSymbol("event_date")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_updated")}>
-                            Date Updated {sortSymbol("date_updated")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("category_id")}>
+                            Category {sortSymbol("category_id")}
                         </th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sortedData.map((event) => (
-                        <tr key={event.id} className="text-center align-middle">
-                            <td>{event.name}</td>
+                        <tr key={event.event_id} className="text-center align-middle">
+                            <td>{event.title}</td>
                             <td>{event.location}</td>
                             <td>{event.organization}</td>
-                            <td>{event.date_created}</td>
-                            <td>{event.date_updated}</td>
+                            <td>{event.event_date}</td>
+                            <td>{event.category_id}</td>
                             <td>
                                 <button className="outline-warning me-2" onClick={() => onViewDetails("editEvents", event)}>
                                     View Event Details
@@ -319,7 +320,7 @@ function ManageEventsContent({ onViewDetails }) {
 
 function ManageVolunteersContent({ onViewDetails }) {
     const [volunteers, setVolunteers] = useState([]);
-    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(volunteers, ["name", "email", "roles", "date_created", "date_updated"]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(volunteers, ["name", "email", "roles", "date_created", "date_updated"]);
 
     useEffect(() => {
         fetchVolunteers();
@@ -384,7 +385,7 @@ function ManageVolunteersContent({ onViewDetails }) {
 
 function ReviewLogDataContent({ onViewDetails }) {
     const [logs, setLogs] = useState([]);
-    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableFeatures(logs, ["name", "email", "data", "message"]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(logs, ["name", "email", "data", "message"]);
 
     useEffect(() => {
         fetchLogs();
