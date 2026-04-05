@@ -11,7 +11,8 @@ import Maps from "./pages/maps";
 import Register from "./pages/register";
 import Provider from "./pages/provider";
 import Volunteer from "./pages/volunteer";
-import Admin from "./pages/admin";
+import Admin from "./pages/adminPage";
+import AuthRoute from "./components/AuthRoute";
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -35,11 +36,23 @@ function App() {
           <Route path="/login" element={<Login setUser={setUser} setRole={setRole} />} />
           <Route path="/events" element={<Events />} />
           <Route path="/register" element={<Register />} />
-
-          {/* Pass userId to dashboards */}
-          <Route path="/provider" element={<Provider userId={user?.user_id} />} />
-          <Route path="/volunteer" element={<Volunteer userId={user?.user_id} />} />
-          <Route path="/admin" element={<Admin userId={user?.user_id} />} />
+          <Route path="/provider" element={
+            <AuthRoute user={user} role={role} requiredRole="provider">
+              <Provider />
+            </AuthRoute>
+            } 
+          />
+          <Route path="/volunteer" element={
+            <AuthRoute user={user} role={role} requiredRole="volunteer">
+              <Volunteer />
+            </AuthRoute>
+            } />
+          <Route path="/admin" element={
+            <AuthRoute user={user} role={role} requiredRole="admin">
+              <Admin />
+            </AuthRoute>
+            } 
+          />
         </Routes>
 
       </BrowserRouter>
