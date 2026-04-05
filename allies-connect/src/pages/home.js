@@ -5,6 +5,10 @@ import "../App.css";
 
 function Home() {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user"));
+  const role = JSON.parse(localStorage.getItem("role"));
+  const isVolunteer = !!user && role === "volunteer";
+
   return (
     <Container className="home-container">
       <div className="text-container mb-5">
@@ -45,7 +49,12 @@ function Home() {
               Sign up to help volunteer with events and local not-for-profit
               groups.
             </p>
-            <Button className="btn-gold">Volunteer</Button>
+            <Button
+              className="btn-gold"
+              onClick={() => navigate(isVolunteer ? "/volunteer" : "/register")}
+            >
+              Volunteer
+            </Button>
           </Col>
         </Row>
       </div>

@@ -1,46 +1,86 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Button, Table, Card } from 'react-bootstrap';
-import axios from 'axios';
-import '../App.css';
+import { useState } from "react";
+import { Col, Container, Row } from "react-bootstrap";
+import "../App.css";
+import ProviderModal from "../components/provider/ProviderModal";
 
-function Provider({ providerId }) {
-  const [opportunities, setOpportunities] = useState([]);
-
-  useEffect(() => {
-    axios.get(`/api/volunteer-opportunities?provider_id=${providerId}`)
-      .then(res => setOpportunities(res.data));
-  }, [providerId]);
-
-  const exportRoster = (shiftId) => {
-    window.open(`/api/organizations/signups/export/${shiftId}`, '_blank');
-  };
+function Provider({ user, setUser, role, setRole }) {
+  const [modalType, setModalType] = useState("");
 
   return (
-    <Container className="home-container">
-      <div className="text-container mb-4">
-        <h1>Provider Management</h1>
-        <p>Create opportunities and manage your volunteer rosters.</p>
-        <Button className="btn-gold w-auto px-4">Create New Opportunity</Button>
+    <Container className="provider-container">
+      <div className="text-container mt-5 mb-5">
+        <h1>{user?.first_name || "Provider"} Dashboard</h1>
       </div>
-
-      <Row className="g-4">
-        {opportunities.map(opp => (
-          <Col md={6} key={opp.opportunity_id}>
-            <Card className="h-100 shadow-sm border-0" style={{borderLeft: '5px solid var(--gold)'}}>
-              <Card.Body>
-                <Card.Title>{opp.title}</Card.Title>
-                <Card.Text>Status: <strong>{opp.status}</strong></Card.Text>
-                <div className="d-flex gap-2">
-                  <Button variant="outline-dark" size="sm">Edit</Button>
-                  <Button variant="info" size="sm" onClick={() => exportRoster(opp.shift_id)}>
-                    Download Roster (CSV)
-                  </Button>
-                </div>
-              </Card.Body>
-            </Card>
+      <div className="mb-4">
+        <h3 className="border-bottom pb-2 mb-3">Events</h3>
+        <Row className="d-flex">
+          <Col md={5} className="d-flex mb-2">
+            <button
+              className="btn-gold flex-grow-1"
+              onClick={() => setModalType("createEvent")}
+            >
+              Create Event
+            </button>
           </Col>
-        ))}
-      </Row>
+          <Col md={5} className="d-flex mb-2">
+            <button
+              className="btn-white flex-grow-1"
+              onClick={() => setModalType("editEvents")}
+            >
+              Edit Events
+            </button>
+          </Col>
+        </Row>
+      </div>
+      <div className="mb-4">
+        <h3 className="border-bottom pb-2 mb-3">Resources</h3>
+        <Row className="d-flex">
+          <Col md={5} className="d-flex mb-2">
+            <button
+              className="btn-gold flex-grow-1"
+              onClick={() => setModalType("createResource")}
+            >
+              Create Resource
+            </button>
+          </Col>
+          <Col md={5} className="d-flex mb-2">
+            <button
+              className="btn-white flex-grow-1"
+              onClick={() => setModalType("editResources")}
+            >
+              Edit Resource
+            </button>
+          </Col>
+          <Col md={5} className="d-flex mb-2">
+            <button
+              className="btn-white flex-grow-1"
+              onClick={() => setModalType("volunteerShifts")}
+            >
+              Volunteer Shift Management
+            </button>
+          </Col>
+        </Row>
+      </div>
+      <div className="mb-4">
+        <h3 className="border-bottom pb-2 mb-3">Reporting</h3>
+        <Row className="d-flex">
+          <Col md={5} className="d-flex mb-2">
+            <button
+              className="btn-gold flex-grow-1"
+              onClick={() => setModalType("exportHours")}
+            >
+              Export Volunteer Hours
+            </button>
+          </Col>
+        </Row>
+      </div>
+      <ProviderModal
+        show={!!modalType}
+        type={modalType}
+        providerId={user?.provider_id}
+        userId={user?.user_id}
+        onHide={() => setModalType("")}
+      />
     </Container>
   );
 }
