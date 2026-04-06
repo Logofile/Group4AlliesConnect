@@ -56,6 +56,59 @@ export function useTableDataProcessing(data, searchField) {
   return { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery };
 }
 
+/**
+ * Format an hours value for display.
+ * Handles both plain-text hours ("8:30 am - 5:30 pm M-F") and
+ * JSON-structured hours ({"monday":{"closed":false,"open":"09:00","close":"17:00"},...}).
+ */
+export function formatHours(hours) {
+  if (!hours) return "N/A";
+  try {
+    const parsed = typeof hours === "string" ? JSON.parse(hours) : hours;
+    if (typeof parsed !== "object" || parsed === null) return hours;
+
+    const dayOrder = [
+      "monday",
+      "tuesday",
+      "wednesday",
+      "thursday",
+      "friday",
+      "saturday",
+      "sunday",
+    ];
+    const dayAbbr = {
+      monday: "Mon",
+      tuesday: "Tue",
+      wednesday: "Wed",
+      thursday: "Thu",
+      friday: "Fri",
+      saturday: "Sat",
+      sunday: "Sun",
+    };
+
+    const formatTime = (t) => {
+      if (!t) return "";
+      const [h, m] = t.split(":");
+      const hour = parseInt(h, 10);
+      const period = hour >= 12 ? "PM" : "AM";
+      const hour12 = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+      return `${hour12}:${m} ${period}`;
+    };
+
+    return dayOrder
+      .filter((day) => parsed[day])
+      .map((day) => {
+        const d = parsed[day];
+        if (d.closed) return `${dayAbbr[day]}: Closed`;
+        return `${dayAbbr[day]}: ${formatTime(d.open)} - ${formatTime(d.close)}`;
+      })
+      .join("\n");
+  } catch {
+    // Not valid JSON — return as-is (plain text hours)
+    return hours;
+  }
+}
+
 export const DAYS_OF_WEEK = [
   "Monday",
   "Tuesday",

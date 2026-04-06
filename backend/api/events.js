@@ -251,6 +251,49 @@ module.exports = function (app, pool) {
     }
   });
 
+  // PUT /api/events/:id
+  // Updates event details
+  app.put("/api/events/:id", async (req, res) => {
+    try {
+      const eventId = req.params.id;
+      const {
+        title,
+        description,
+        capacity,
+        registration_required,
+        special_instructions,
+        start_datetime,
+        end_datetime,
+      } = req.body;
+
+      if (!title) {
+        return res.status(400).json({ error: "Title is required." });
+      }
+
+      await pool.promise().query(
+        `UPDATE Event
+         SET title = ?, description = ?, capacity = ?, registration_required = ?,
+             special_instructions = ?, start_datetime = ?, end_datetime = ?
+         WHERE event_id = ?`,
+        [
+          title,
+          description || null,
+          capacity || null,
+          registration_required || "unknown",
+          special_instructions || null,
+          start_datetime || null,
+          end_datetime || null,
+          eventId,
+        ],
+      );
+
+      res.json({ message: "Event updated successfully." });
+    } catch (err) {
+      console.error("Error updating event:", err);
+      res.status(500).json({ error: "Failed to update event." });
+    }
+  });
+
   // POST /api/events/:id/rsvp
   // Body: { userId, status }
   app.post("/api/events/:id/rsvp", async (req, res) => {

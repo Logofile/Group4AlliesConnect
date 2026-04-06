@@ -5,7 +5,7 @@ import { API_URL, TIME_OPTIONS } from "./providerHelpers";
 
 function CreateEventContent({ onViewDetails, providerId }) {
   const [categories, setCategories] = useState([]);
-  const [providers, setProviders] = useState([]);
+  const [provider, setProvider] = useState(null);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [formData, setFormData] = useState({
     title: "",
@@ -39,7 +39,9 @@ function CreateEventContent({ onViewDetails, providerId }) {
 
   useEffect(() => {
     fetchCategories();
-    fetchProviders();
+    if (providerId) {
+      fetchProvider();
+    }
   }, []);
 
   const fetchCategories = async () => {
@@ -52,13 +54,16 @@ function CreateEventContent({ onViewDetails, providerId }) {
     }
   };
 
-  const fetchProviders = async () => {
+  const fetchProvider = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/organizations`);
+      const response = await fetch(
+        `${API_URL}/api/organizations/profile/${providerId}`,
+      );
       const data = await response.json();
-      setProviders(Array.isArray(data) ? data : []);
+      setProvider(data);
+      setFormData((prev) => ({ ...prev, provider_id: data.provider_id }));
     } catch (error) {
-      console.error("Error fetching providers:", error);
+      console.error("Error fetching provider:", error);
     }
   };
 
@@ -218,20 +223,12 @@ function CreateEventContent({ onViewDetails, providerId }) {
             Event Sponsor <span className="text-danger">*</span>
           </strong>
         </label>
-        <select
-          className="form-select"
-          name="provider_id"
-          value={formData.provider_id}
-          onChange={handleChange}
-          required
-        >
-          <option value="">Select a sponsor</option>
-          {providers.map((provider) => (
-            <option key={provider.provider_id} value={provider.provider_id}>
-              {provider.name}
-            </option>
-          ))}
-        </select>
+        <input
+          type="text"
+          className="form-control"
+          value={provider?.name || "Loading..."}
+          readOnly
+        />
       </div>
       <div className="mb-3">
         <label className="form-label">
