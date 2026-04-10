@@ -241,7 +241,7 @@ function ManageResourcesContent({ onViewDetails }) {
                             <td>{resource.event_date}</td>
                             <td>{resource.category_id}</td>
                             <td>
-                                <button className="outline-warning me-2" onClick={() => onViewDetails("editResources", resource)}>
+                                <button className="outline-warning me-2" onClick={() => onViewDetails("manageResources", resource)}>
                                     View Resource Details
                                 </button>
                             </td>
@@ -306,7 +306,7 @@ function ManageEventsContent({ onViewDetails }) {
                             <td>{event.event_date}</td>
                             <td>{event.category_id}</td>
                             <td>
-                                <button className="outline-warning me-2" onClick={() => onViewDetails("editEvents", event)}>
+                                <button className="outline-warning me-2" onClick={() => onViewDetails("manageEvents", event)}>
                                     View Event Details
                                 </button>
                             </td>
