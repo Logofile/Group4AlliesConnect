@@ -4,7 +4,12 @@ import { useEffect, useState} from "react";
 import axios from "axios";
 import AdminDetailsModal from "./AdminDetailsModal";
 
-function useTableDataProcessing(data, searchField) {
+const getAuthHeaders = () => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    return { "x-user-id": user?.user_id };
+};
+
+function useTableDataProcessing(data, searchFields) {
     const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -19,19 +24,23 @@ function useTableDataProcessing(data, searchField) {
         if (sortConfig.key === key) {
             return sortConfig.direction === "asc" ? " ▲" : " ▼";
         }
-        return " ";
+        return "  ";
     }
 
-    const sortedData = [...data].sort((a, b) => {
-        if (a[sortConfig.key] < b[sortConfig.key]) {
-            return sortConfig.direction === "asc" ? -1 : 1;
-        }
-        return 0;
-    })
-    .filter(item => String(item[searchField] ?? "").toLowerCase().includes(searchQuery.toLowerCase()));
+    const sortedData = [...data]
+        .filter(item =>
+            searchFields.some(field =>
+                String(item[field] ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+            )
+        )
+        .sort((a, b) => {
+            if (!sortConfig.key) return 0;
+            return sortConfig.direction === "asc"
+                ? String(a[sortConfig.key] ?? "").localeCompare(String(b[sortConfig.key] ?? ""))
+                : String(b[sortConfig.key] ?? "").localeCompare(String(a[sortConfig.key] ?? ""));
+        });
 
-    return { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery };
-}
+    return { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery };}
 
 function PendingOrgsContent({ onViewDetails }) {
     const [pendingOrgs, setPendingOrgs] = useState([]);
@@ -43,7 +52,8 @@ function PendingOrgsContent({ onViewDetails }) {
 
     const fetchPendingOrgs = async () => {
         try {
-            const response = await fetch("http://localhost:5000/api/admin/pending-providers");
+            const response = await fetch("http://localhost:5000/api/admin/pending-providers",
+                { headers: getAuthHeaders() });
             const data = await response.json();
             setPendingOrgs(Array.isArray(data) ? data : []);
         } catch (error) {
@@ -55,7 +65,8 @@ function PendingOrgsContent({ onViewDetails }) {
 
     const handleApprove = async (orgId) => {
         try {
-            await axios.put(`http://localhost:5000/api/admin/providers/${orgId}/approve`, { orgId });
+            await axios.patch(`http://localhost:5000/api/admin/providers/${orgId}/approve`,
+                {}, { headers: getAuthHeaders() });            
             alert("Organization approved successfully.");
             fetchPendingOrgs();
         } catch (error) {
@@ -66,7 +77,8 @@ function PendingOrgsContent({ onViewDetails }) {
 
     const handleReject = async (orgId) => {
         try {
-            await axios.put(`http://localhost:5000/api/admin/providers/${orgId}/reject`, {  orgId });
+            await axios.patch(`http://localhost:5000/api/admin/providers/${orgId}/status`,
+                { status: "suspended" }, { headers: getAuthHeaders() });
             alert("Organization rejected successfully.");
             fetchPendingOrgs();
         } catch (error) {
@@ -88,7 +100,7 @@ function PendingOrgsContent({ onViewDetails }) {
                             Email {sortSymbol("email")}
                         </th>
                         <th style={{ cursor: "pointer" }} onClick={() => handleSort("application_date")}>
-                            Date {sortSymbol("application_date")}
+                            Application Date {sortSymbol("application_date")}
                         </th>
                         <th style={{ cursor: "pointer" }} onClick={() => handleSort("ein")}>
                             EIN {sortSymbol("ein")}
@@ -99,18 +111,18 @@ function PendingOrgsContent({ onViewDetails }) {
                 <tbody>
                     {sortedData.map((org) => (
                         <tr key={org.provider_id} className="text-center align-middle">
-                            <td>{org.name}</td>
-                            <td>{org.email}</td>
-                            <td>{org.application_date}</td>
-                            <td>{org.ein}</td>
+                            <td>{org.name || "N/A"}</td>
+                            <td>{org.email || "N/A"}</td>
+                            <td>{org.application_date || "N/A"}</td>
+                            <td>{org.ein || "N/A"}</td>
                             <td>
                                 <button className="outline-warning me-2" onClick={() => onViewDetails("pendingOrgs", org)}>
                                     View Full Application
                                 </button>
-                                <button className="btn-success me-2" onClick={() => handleApprove(org.provider_id)}>
+                                <button className="btn-green me-2" onClick={() => handleApprove(org.provider_id)}>
                                     Approve
                                 </button>
-                                <button className="btn-danger" onClick={() => handleReject(org.provider_id)}>
+                                <button className="btn-red" onClick={() => handleReject(org.provider_id)}>
                                     Reject
                                 </button>
                             </td>
@@ -132,7 +144,8 @@ function EditAccountsContent({ onViewDetails }) {
 
     const fetchAccounts = async () => {
         try {
-            const response = await fetch("http://localhost:5000/api/admin/accounts");
+            const response = await fetch("http://localhost:5000/api/admin/accounts",
+                { headers: getAuthHeaders() });
             const data = await response.json();
             setAccounts(Array.isArray(data) ? data : []);
         } catch (error) {
@@ -163,17 +176,17 @@ function EditAccountsContent({ onViewDetails }) {
                         <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_updated")}>
                             Date Updated {sortSymbol("date_updated")}
                         </th>
-                        <th>Action</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sortedData.map((account) => (
                         <tr key={account.username} className="text-center align-middle">
-                            <td>{account.name}</td>
-                            <td>{account.email}</td>
-                            <td>{account.roles}</td>
-                            <td>{account.date_created}</td>
-                            <td>{account.date_updated}</td>
+                            <td>{account.name || "N/A"}</td>
+                            <td>{account.email || "N/A"}</td>
+                            <td>{account.roles || "N/A"}</td>
+                            <td>{account.date_created || "N/A"}</td>
+                            <td>{account.date_updated || "N/A"}</td>
                             <td>
                                 <button className="outline-warning me-2" onClick={() => onViewDetails("editAccounts", account)}>
                                     View Account Details
@@ -200,7 +213,6 @@ function ManageResourcesContent({ onViewDetails }) {
             const response = await fetch("http://localhost:5000/api/resources");
             const data = await response.json();
             setResources(Array.isArray(data) ? data : []);
-            console.log("Fetched resources:", data);
         } catch (error) {
             console.error("Error fetching resources:", error);
             alert("Error fetching resources.");
@@ -217,29 +229,29 @@ function ManageResourcesContent({ onViewDetails }) {
                         <th style={{ cursor: "pointer" }} onClick={() => handleSort("name")}>
                             Name {sortSymbol("name")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("location")}>
-                            Location {sortSymbol("location")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("zip")}>
+                            Zip Code {sortSymbol("zip")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("organization")}>
-                            Organization {sortSymbol("organization")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("provider_name")}>
+                            Organization {sortSymbol("provider_name")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("event_date")}>
-                            Event Date {sortSymbol("event_date")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("hours")}>
+                            Hours {sortSymbol("hours")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("category_id")}>
-                            Category {sortSymbol("category_id")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("category_name")}>
+                            Category {sortSymbol("category_name")}
                         </th>
-                        <th>Action</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sortedData.map((resource) => (
                         <tr key={resource.resource_id} className="text-center align-middle">
-                            <td>{resource.name}</td>
-                            <td>{resource.location}</td>
-                            <td>{resource.organization}</td>
-                            <td>{resource.event_date}</td>
-                            <td>{resource.category_id}</td>
+                            <td>{resource.name || "N/A"}</td>
+                            <td>{resource.zip || "N/A"}</td>
+                            <td>{resource.provider_name || "N/A"}</td>
+                            <td>{resource.hours || "N/A"}</td>
+                            <td>{resource.category_name || "N/A"}</td>
                             <td>
                                 <button className="outline-warning me-2" onClick={() => onViewDetails("manageResources", resource)}>
                                     View Resource Details
@@ -282,29 +294,29 @@ function ManageEventsContent({ onViewDetails }) {
                         <th style={{ cursor: "pointer" }} onClick={() => handleSort("title")}>
                             Title {sortSymbol("title")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("location")}>
-                            Location {sortSymbol("location")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("zip")}>
+                            Zip Code {sortSymbol("zip")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("organization")}>
-                            Organization {sortSymbol("organization")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("provider_name")}>
+                            Organization {sortSymbol("provider_name")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("event_date")}>
-                            Event Date {sortSymbol("event_date")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("start_datetime")}>
+                            Start Time {sortSymbol("start_datetime")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("category_id")}>
-                            Category {sortSymbol("category_id")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("category_name")}>
+                            Category {sortSymbol("category_name")}
                         </th>
-                        <th>Action</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sortedData.map((event) => (
                         <tr key={event.event_id} className="text-center align-middle">
-                            <td>{event.title}</td>
-                            <td>{event.location}</td>
-                            <td>{event.organization}</td>
-                            <td>{event.event_date}</td>
-                            <td>{event.category_id}</td>
+                            <td>{event.title || "N/A"}</td>
+                            <td>{event.zip || "N/A"}</td>
+                            <td>{event.provider_name || "N/A"}</td>
+                            <td>{event.start_datetime || "N/A"}</td>
+                            <td>{event.category_name || "N/A"}</td>
                             <td>
                                 <button className="outline-warning me-2" onClick={() => onViewDetails("manageEvents", event)}>
                                     View Event Details
@@ -328,9 +340,11 @@ function ManageVolunteersContent({ onViewDetails }) {
 
     const fetchVolunteers = async () => {
         try {
-            const response = await fetch("http://localhost:5000/api/admin/volunteers");
+            const response = await fetch("http://localhost:5000/api/admin/volunteers",
+                { headers: getAuthHeaders() });
             const data = await response.json();
             setVolunteers(Array.isArray(data) ? data : []);
+            console.log("Fetched resources:", data);
         } catch (error) {
             console.error("Error fetching volunteers:", error);
             alert("Error fetching volunteers.");
@@ -359,17 +373,17 @@ function ManageVolunteersContent({ onViewDetails }) {
                         <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_updated")}>
                             Date Updated {sortSymbol("date_updated")}
                         </th>
-                        <th>Action</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sortedData.map((volunteer) => (
                         <tr key={volunteer.username} className="text-center align-middle">
-                            <td>{volunteer.name}</td>
-                            <td>{volunteer.email}</td>
-                            <td>{volunteer.roles}</td>
-                            <td>{volunteer.date_created}</td>
-                            <td>{volunteer.date_updated}</td>
+                            <td>{volunteer.name || "N/A"}</td>
+                            <td>{volunteer.email || "N/A"}</td>
+                            <td>{volunteer.roles || "N/A"}</td>
+                            <td>{volunteer.date_created || "N/A"}</td>
+                            <td>{volunteer.date_updated || "N/A"}</td>
                             <td>
                                 <button className="outline-warning me-2" onClick={() => onViewDetails("editVolunteers", volunteer)}>
                                     View Volunteer Details
@@ -393,9 +407,11 @@ function ReviewLogDataContent({ onViewDetails }) {
 
     const fetchLogs = async () => {
         try {
-            const response = await fetch("http://localhost:5000/api/admin/logs");
+            const response = await fetch("http://localhost:5000/api/admin/logs",
+                { headers: getAuthHeaders() });
             const data = await response.json();
             setLogs(Array.isArray(data) ? data : []);
+            console.log("Fetched resources:", data);
         } catch (error) {
             console.error("Error fetching logs:", error);
             alert("Error fetching logs.");
@@ -409,30 +425,34 @@ function ReviewLogDataContent({ onViewDetails }) {
             <Table hover className="text-center">
                 <thead>
                     <tr className="text-center">
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("name")}>
-                            Name {sortSymbol("name")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("log_id")}>
+                            Log ID {sortSymbol("log_id")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("email")}>
-                            Email {sortSymbol("email")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("action")}>
+                            Action {sortSymbol("action")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date")}>
-                            Date {sortSymbol("date")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("actor_user_id")}>
+                            Actor User ID {sortSymbol("actor_user_id")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("message")}>
-                            Message {sortSymbol("message")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("entity_type")}>
+                            Entity Type {sortSymbol("entity_type")}
+                        </th>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("occured_at")}>
+                            Date {sortSymbol("occured_at")}
                         </th>
                         <th>Action</th>
                     </tr>
                 </thead>
                 <tbody>
                     {sortedData.map((log) => (
-                        <tr key={log.id} className="text-center align-middle">
-                            <td>{log.name}</td>
-                            <td>{log.email}</td>
-                            <td>{log.date}</td>
-                            <td>{log.message}</td>
+                        <tr key={log.log_id} className="text-center align-middle">
+                            <td>{log.log_id || "N/A"}</td>
+                            <td>{log.action || "N/A"}</td>
+                            <td>{log.actor_user_id || "N/A"}</td>
+                            <td>{log.entity_type || "N/A"}</td>
+                            <td>{log.occured_at || "N/A"}</td>
                             <td>
-                                <button className="outline-warning me-2" onClick={() => onViewDetails("editLogs", log)}>
+                                <button className="outline-warning me-2" onClick={() => onViewDetails("reviewLogData", log)}>
                                     View Log Details
                                 </button>
                             </td>
@@ -474,12 +494,14 @@ const MODAL_TYPE = {
 function AdminModal({ show, onHide, type}) {
     const [detailModalType, setDetailModalType] = useState("");
     const [selectedData, setSelectedData] = useState(null);
+    const [refreshCallback, setRefreshCallback] = useState({ fn: null });
     const config = MODAL_TYPE[type];
 
-    const handleViewDetails = (detailType, data) => {
+    const handleViewDetails = (detailType, data, onRefresh) => {
         setSelectedData(data);
         setDetailModalType(detailType);
-    }
+        setRefreshCallback({ fn: onRefresh });
+    };
 
     return (
         <Modal show={show} className="modal-wide" onHide={onHide}>
@@ -489,8 +511,7 @@ function AdminModal({ show, onHide, type}) {
             <Modal.Body>
                 {config && <config.Content onViewDetails={handleViewDetails} />}
             </Modal.Body>
-            <AdminDetailsModal show={!!detailModalType} type={detailModalType} data={selectedData}
-             onHide={() => { setDetailModalType(""); setSelectedData(null); }} />
+            <AdminDetailsModal show={!!detailModalType} type={detailModalType} data={selectedData} onRefresh={refreshCallback.fn} onHide={() => { setDetailModalType(""); setSelectedData(null); }}/>
         </Modal>
     );
 }

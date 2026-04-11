@@ -1,354 +1,304 @@
 import "../App.css";
-import { Modal, Col, Row} from "react-bootstrap";
+import { Modal, Col, Row, Button} from "react-bootstrap";
 import { useEffect, useState} from "react";
 import axios from "axios";
 
-function PendingOrgsContent({ data }) {
+const getAuthHeaders = () => {
+    const user = JSON.parse(localStorage.getItem("user"));
+    return { "x-user-id": user?.user_id };
+};
+
+function EditableField({ label, value, onChange, type = "text", readOnly = false}) {
     return (
-        <>
-        </>
+        <Row className="text-start mb-3">
+            <Col md={4} className="d-flex align-items-center">
+                <h5>{label}:</h5>
+            </Col>
+            <Col md={8}>
+                {readOnly ? (<p className="mb-0 pt-1">{value || "N/A"}</p>) : (
+                    <input type={type} className="form-control" value={value || ""} onChange={(e) => onChange(e.target.value)}/>)}
+            </Col>
+        </Row>
     );
 }
 
-function EditAccountsContent({ data }) {
-    return (
-        <>
-        </>
-    );
-}
+function PendingOrgsContent({ data, onSave }) {
+    const [form, setForm] = useState({});
 
-function ManageResourcesContent({ data }) {
+    useEffect(() => { setForm(data || {}); }, [data]);
+
+    const handleApprove = async () => {
+        try {
+            await axios.patch(
+                `http://localhost:5000/api/admin/providers/${form.provider_id}/approve`,
+                {},
+                { headers: getAuthHeaders() }
+            );
+            alert("Organization approved successfully.");
+            onSave();
+        } catch (error) {
+            alert("Error approving organization.");
+        }
+    };
+
+    const handleReject = async () => {
+        try {
+            await axios.patch(
+                `http://localhost:5000/api/admin/providers/${form.provider_id}/status`,
+                { status: "suspended" },
+                { headers: getAuthHeaders() }
+            );
+            alert("Organization rejected.");
+            onSave();
+        } catch (error) {
+            alert("Error rejecting organization.");
+        }
+    };
+
     return (
         <>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Resource Name:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.name}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Resource ID:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.resource_id}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Description:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.description}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Hours:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.hours}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Category:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.category_name}</p>
-                </Col>
-            </Row>
-             <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Category ID:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.category_id}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Eligibility Requirements:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.eligibility_requirements}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Provider Name:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.provider_name}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Provider ID:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.provider_id}</p>
-                </Col>
-            </Row>
-             <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Location ID:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.location_id}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Street Address:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.street_address_1} {data?.street_address_2}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>City:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.city}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>State:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.state}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Zip Code:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.zip}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Latitude:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.latitude}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Longitude:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.longitude}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Image URL:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.image_url}</p>
+            <EditableField label="Organization Name" value={form.name} readOnly />
+            <EditableField label="Email" value={form.email} readOnly />
+            <EditableField label="EIN" value={form.ein} readOnly />
+            <EditableField label="Phone" value={form.phone_number} readOnly />
+            <EditableField label="Date Applied" value={form.application_date} readOnly />
+            <EditableField label="Status" value={form.status} readOnly />
+            <Row className="justify-content-end mt-3">
+                <Col md={5}>
+                    <Button className="btn-green me-2" onClick={handleApprove}>Approve</Button>
+                    <Button className="btn-red" onClick={handleReject}>Reject</Button>
                 </Col>
             </Row>
         </>
     );
 }
 
-function ManageEventsContent({ data }) {
+function EditAccountsContent({ data, onSave }) {
+    const [form, setForm] = useState({});
+
+    useEffect(() => { setForm(data || {}); }, [data]);
+
+    const set = (field) => (value) => setForm(prev => ({ ...prev, [field]: value }));
+
+    const handleSave = async () => {
+        try {
+            await axios.put(
+                `http://localhost:5000/api/users/profile/${form.user_id}`,
+                {
+                    first_name: form.first_name,
+                    last_name: form.last_name,
+                    phone: form.phone,
+                    zip_code: form.zip_code
+                },
+                { headers: getAuthHeaders() }
+            );
+            alert("Account updated successfully.");
+            onSave();
+        } catch (error) {
+            alert("Error updating account.");
+        }
+    };
+
     return (
         <>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Event Name:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.title}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Event ID:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.event_id}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Description:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.description}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Start Date and Time:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.start_datetime}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>End Date and Time:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.end_datetime}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Category:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.category_name}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Category ID:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.category_id}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Registration Required:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.registration_required}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Special Instructions:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.special_instructions}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Provider Name:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.provider_name}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Provider ID:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.provider_id}</p>
-                </Col>
-            </Row>
-             <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Location:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.location_id}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Street Address:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.street_address_1} {data?.street_address_2}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>City:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.city}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>State:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.state}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Zip Code:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.zip}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Latitude:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.latitude}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Longitude:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.longitude}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Image URL:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.image_url}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Flyer URL:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.flyer_url}</p>
-                </Col>
-            </Row>
-            <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                    <h5>Created At:</h5>
-                </Col>
-                <Col md={9} className="d-flex align-items-center">
-                    <p>{data?.created_at}</p>
+            <EditableField label="Email" value={form.email} readOnly />
+            <EditableField label="Roles" value={form.roles} readOnly />
+            <EditableField label="First Name" value={form.first_name} onChange={set("first_name")} />
+            <EditableField label="Last Name" value={form.last_name} onChange={set("last_name")} />
+            <EditableField label="Phone" value={form.phone} onChange={set("phone")} />
+            <EditableField label="ZIP Code" value={form.zip_code} onChange={set("zip_code")} />
+            <Row className="justify-content-end mt-3">
+                <Col md={4}>
+                    <Button className="btn-gold w-100" onClick={handleSave}>Save Changes</Button>
                 </Col>
             </Row>
         </>
     );
 }
 
-function ManageVolunteersContent({ data }) {
+function ManageResourcesContent({ data, onSave }) {
+    const [form, setForm] = useState({});
+
+    useEffect(() => { setForm(data || {}); }, [data]);
+
+    const set = (field) => (value) => setForm(prev => ({ ...prev, [field]: value }));
+
+    const handleSave = async () => {
+        try {
+            await axios.put(
+                `http://localhost:5000/api/resources/${form.resource_id}`,
+                {
+                    category_id: form.category_id,
+                    location_id: form.location_id,
+                    name: form.name,
+                    description: form.description,
+                    hours: form.hours,
+                    image_url: form.image_url,
+                    eligibility_requirements: form.eligibility_requirements
+                },
+                { headers: getAuthHeaders() }
+            );
+            alert("Resource updated successfully.");
+            onSave();
+        } catch (error) {
+            alert("Error updating resource.");
+        }
+    };
+
+    const handleDeactivate = async () => {
+        if (!window.confirm("Deactivate this resource?")) return;
+        try {
+            await axios.patch(
+                `http://localhost:5000/api/admin/content/resource/${form.resource_id}`,
+                {},
+                { headers: getAuthHeaders() }
+            );
+            alert("Resource deactivated.");
+            onSave();
+        } catch (error) {
+            alert("Error deactivating resource.");
+        }
+    };
+
     return (
         <>
+            <EditableField label="Resource ID" value={form.resource_id} readOnly />
+            <EditableField label="Provider" value={form.provider_name} readOnly />
+            <EditableField label="Name" value={form.name} onChange={set("name")} />
+            <EditableField label="Description" value={form.description} onChange={set("description")} />
+            <EditableField label="Hours" value={form.hours} onChange={set("hours")} />
+            <EditableField label="Category" value={form.category_name} readOnly />
+            <EditableField label="Eligibility Requirements" value={form.eligibility_requirements} onChange={set("eligibility_requirements")} />
+            <EditableField label="Street Address" value={`${form.street_address_1 || ""} ${form.street_address_2 || ""}`.trim()} readOnly />
+            <EditableField label="City" value={form.city} readOnly />
+            <EditableField label="State" value={form.state} readOnly />
+            <EditableField label="ZIP" value={form.zip} readOnly />
+            <EditableField label="Image URL" value={form.image_url} onChange={set("image_url")} />
+            <Row className="justify-content-end mt-3">
+                <Col md={4}>
+                    <Button variant="danger" className="w-100 mb-2" onClick={handleDeactivate}>Deactivate</Button>
+                    <Button className="btn-gold w-100" onClick={handleSave}>Save Changes</Button>
+                </Col>
+            </Row>
+        </>
+    );
+}
+
+function ManageEventsContent({ data, onSave }) {
+    const [form, setForm] = useState({});
+
+    useEffect(() => { setForm(data || {}); }, [data]);
+
+    const set = (field) => (value) => setForm(prev => ({ ...prev, [field]: value }));
+
+    const handleSave = async () => {
+        try {
+            // Events don't have a PUT route yet — using admin content patch to deactivate
+            // Add a PUT /api/events/:id route to your backend for full edits
+            alert("Event save not yet implemented — add PUT /api/events/:id to your backend.");
+        } catch (error) {
+            alert("Error updating event.");
+        }
+    };
+
+    const handleDeactivate = async () => {
+        if (!window.confirm("Deactivate this event?")) return;
+        try {
+            await axios.patch(
+                `http://localhost:5000/api/admin/content/event/${form.event_id}`,
+                {},
+                { headers: getAuthHeaders() }
+            );
+            alert("Event deactivated.");
+            onSave();
+        } catch (error) {
+            alert("Error deactivating event.");
+        }
+    };
+
+    return (
+        <>
+            <EditableField label="Event ID" value={form.event_id} readOnly />
+            <EditableField label="Provider" value={form.provider_name} readOnly />
+            <EditableField label="Title" value={form.title} onChange={set("title")} />
+            <EditableField label="Description" value={form.description} onChange={set("description")} />
+            <EditableField label="Start Date/Time" value={form.start_datetime} onChange={set("start_datetime")} type="datetime-local" />
+            <EditableField label="End Date/Time" value={form.end_datetime} onChange={set("end_datetime")} type="datetime-local" />
+            <EditableField label="Category" value={form.category_name} readOnly />
+            <EditableField label="Registration Required" value={form.registration_required} onChange={set("registration_required")} />
+            <EditableField label="Special Instructions" value={form.special_instructions} onChange={set("special_instructions")} />
+            <EditableField label="Street Address" value={`${form.street_address_1 || ""} ${form.street_address_2 || ""}`.trim()} readOnly />
+            <EditableField label="City" value={form.city} readOnly />
+            <EditableField label="State" value={form.state} readOnly />
+            <EditableField label="ZIP" value={form.zip} readOnly />
+            <EditableField label="Image URL" value={form.image_url} onChange={set("image_url")} />
+            <EditableField label="Flyer URL" value={form.flyer_url} onChange={set("flyer_url")} />
+            <Row className="justify-content-end mt-3">
+                <Col md={4}>
+                    <Button variant="danger" className="w-100 mb-2" onClick={handleDeactivate}>Deactivate</Button>
+                    <Button className="btn-gold w-100" onClick={handleSave}>Save Changes</Button>
+                </Col>
+            </Row>
+        </>
+    );
+}
+
+function ManageVolunteersContent({ data, onSave }) {
+    const [form, setForm] = useState({});
+
+    useEffect(() => { setForm(data || {}); }, [data]);
+
+    const set = (field) => (value) => setForm(prev => ({ ...prev, [field]: value }));
+
+    const handleSave = async () => {
+        try {
+            await axios.put(
+                `http://localhost:5000/api/users/profile/${form.user_id}`,
+                {
+                    first_name: form.first_name,
+                    last_name: form.last_name,
+                    phone: form.phone,
+                    zip_code: form.zip_code
+                },
+                { headers: getAuthHeaders() }
+            );
+            alert("Volunteer updated successfully.");
+            onSave();
+        } catch (error) {
+            alert("Error updating volunteer.");
+        }
+    };
+
+    return (
+        <>
+            <EditableField label="Email" value={form.email} readOnly />
+            <EditableField label="Roles" value={form.roles} readOnly />
+            <EditableField label="First Name" value={form.first_name} onChange={set("first_name")} />
+            <EditableField label="Last Name" value={form.last_name} onChange={set("last_name")} />
+            <EditableField label="Phone" value={form.phone} onChange={set("phone")} />
+            <EditableField label="ZIP Code" value={form.zip_code} onChange={set("zip_code")} />
+            <Row className="justify-content-end mt-3">
+                <Col md={4}>
+                    <Button className="btn-gold w-100" onClick={handleSave}>Save Changes</Button>
+                </Col>
+            </Row>
         </>
     );
 }
 
 function ReviewLogDataContent({ data }) {
+    if (!data) return <p>No data available.</p>;
     return (
         <>
+            <EditableField label="Log ID" value={data.log_id} readOnly />
+            <EditableField label="Action" value={data.action} readOnly />
+            <EditableField label="Actor User ID" value={data.actor_user_id} readOnly />
+            <EditableField label="Entity ID" value={data.entity_id} readOnly />
+            <EditableField label="Entity Type" value={data.entity_type} readOnly />
+            <EditableField label="Occurred At" value={data.occured_at} readOnly />
         </>
     );
 }
-
 const MODAL_TYPE = {
     pendingOrgs: {
         title: "Pending Organization Details",
@@ -376,8 +326,13 @@ const MODAL_TYPE = {
     },
 };
 
-function AdminDetailsModal({ show, onHide, type, data}) {
+function AdminDetailsModal({ show, onHide, type, data, onRefresh}) {
     const config = MODAL_TYPE[type];
+
+    const handleSave = () => {
+        onHide();
+        if (onRefresh) onRefresh();
+    };
 
     return (
         <Modal show={show} onHide={onHide}>
@@ -385,7 +340,7 @@ function AdminDetailsModal({ show, onHide, type, data}) {
                 <Modal.Title>{config?.title || ""}</Modal.Title>
             </Modal.Header>
             <Modal.Body>
-                {config && <config.Content data={data}/>}
+                {config && <config.Content data={data} onSave={handleSave}/>}
             </Modal.Body>
         </Modal>
     );

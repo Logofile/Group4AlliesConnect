@@ -60,10 +60,10 @@ INSERT INTO Category (name, type) VALUES
 ('Educational Workshop', 'event');
 
 -- 10. Resources
-INSERT INTO Resource (provider_id, category_id, location_id, name, description, image_url, eligibility_requirements) VALUES
-(1, 1, 1, 'Emergency Food Pantry', 'Weekly groceries for families in need.', NULL, NULL),
-(2, 2, 2, 'Overnight Beds', 'Safe sleeping environment for individuals.', NULL, NULL),
-(3, 3, 3, 'Public Computer Lab', 'Free internet and computer access.', NULL, NULL);
+INSERT INTO Resource (provider_id, category_id, location_id, name, description, image_url, eligibility_requirements, contact_name, contact_email, contact_phone, languages_spoken, accessibility, social_media_links) VALUES
+(1, 1, 1, 'Emergency Food Pantry', 'Weekly groceries for families in need.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(2, 2, 2, 'Overnight Beds', 'Safe sleeping environment for individuals.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(3, 3, 3, 'Public Computer Lab', 'Free internet and computer access.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 -- 11. Events
 INSERT INTO Event (provider_id, category_id, location_id, title, start_datetime, end_datetime, registration_required, image_url, flyer_url) VALUES

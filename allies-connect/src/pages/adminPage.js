@@ -8,7 +8,11 @@ function Admin({ user, setUser , role, setRole }) {
 
     const exportToCSV = async () => {
         try {
-            const response = await fetch("http://localhost:5000/api/admin/logs");
+            const user = JSON.parse(localStorage.getItem("user"));
+            
+            const response = await fetch("http://localhost:5000/api/admin/logs", {
+            headers: { "x-user-id": user?.user_id }
+            });
             const data = await response.json();
 
             if (!Array.isArray(data) || data.length === 0) {
@@ -30,6 +34,7 @@ function Admin({ user, setUser , role, setRole }) {
             link.download = `log_data_${new Date().toISOString().slice(0, 10)}.csv`;
             document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link)
             URL.revokeObjectURL(url);
         } catch (error) {
             console.error("Error exporting log data:", error);
@@ -38,7 +43,7 @@ function Admin({ user, setUser , role, setRole }) {
     }
 
     return (
-        <Container className="admin-container">
+        <Container>
             <div className="text-container mt-5 mb-5">
                 <h1>{user?.first_name || "Admin"} Dashboard</h1>
             </div>
