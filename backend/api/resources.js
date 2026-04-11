@@ -20,6 +20,12 @@ module.exports = function (app, pool) {
           r.hours,
           r.image_url,
           r.eligibility_requirements,
+          r.contact_name,
+          r.contact_email,
+          r.contact_phone,
+          r.languages_spoken,
+          r.accessibility,
+          r.social_media_links,
           s.name AS provider_name,
           c.name AS category_name,
           l.street_address_1,
@@ -75,11 +81,13 @@ module.exports = function (app, pool) {
           r.hours,
           r.image_url,
           r.eligibility_requirements,
+          r.contact_name,
+          r.contact_email,
+          r.contact_phone,
+          r.languages_spoken,
+          r.accessibility,
+          r.social_media_links,
           s.name AS provider_name,
-          s.website,
-          s.contact_name,
-          s.contact_email,
-          s.contact_phone,
           c.name AS category_name,
           l.street_address_1,
           l.street_address_2,
@@ -112,11 +120,9 @@ module.exports = function (app, pool) {
   // Returns available categories for filters
   app.get("/api/categories", async (req, res) => {
     try {
-      const [rows] = await pool
-        .promise()
-        .query(
-          "SELECT category_id, name, type FROM Category ORDER BY name ASC",
-        );
+      const [rows] = await pool.promise().query(
+        "SELECT category_id, name, type FROM Category ORDER BY name ASC"
+      );
 
       res.json(rows);
     } catch (err) {
@@ -127,136 +133,91 @@ module.exports = function (app, pool) {
 
   // POST /api/resources
   // Creates a new resource with location
-  app.post(
-    "/api/resources",
-    requireRole(pool, "provider"),
-    async (req, res) => {
-      const conn = await pool.promise().getConnection();
-      try {
-        const {
-          provider_id,
-          name,
-          street_address,
-          city,
-          state,
-          zip,
-          hours,
-          category_ids,
-          phone,
-          website,
-          languages,
-          social_media_links,
-          description,
-          eligibility_requirements,
-        } = req.body;
+  app.post("/api/resources", requireRole(pool, "provider"), async (req, res) => {
+    const conn = await pool.promise().getConnection();
 
-        if (
-          !provider_id ||
-          !name ||
-          !street_address ||
-          !city ||
-          !state ||
-          !zip ||
-          !hours ||
-          !category_ids ||
-          category_ids.length === 0 ||
-          !phone
-        ) {
-          conn.release();
-          return res.status(400).json({ error: "Missing required fields." });
-        }
+    try {
+      const {
+        provider_id,
+        name,
+        street_address,
+        city,
+        state,
+        zip,
+        hours,
+        category_ids,
+        image_url,
+        description,
+        eligibility_requirements,
+        contact_name,
+        contact_email,
+        contact_phone,
+        languages_spoken,
+        accessibility,
+        social_media_links
+      } = req.body;
 
-        await conn.beginTransaction();
-
-        // Geocode the address to get lat/lng
-        const coords = await geocodeAddress({
-          street: street_address,
-          city,
-          state,
-          zip,
-        });
-
-        // Check if a Location with this lat/lng already exists
-        let locationId;
-        if (coords?.lat != null && coords?.lng != null) {
-          const [existing] = await conn.query(
-            `SELECT location_id FROM Location WHERE latitude = ? AND longitude = ?`,
-            [coords.lat, coords.lng],
-          );
-          if (existing.length > 0) {
-            locationId = existing[0].location_id;
-          }
-        }
-
-        // Create a new Location if no match was found
-        if (!locationId) {
-          const [locResult] = await conn.query(
-            `INSERT INTO Location (street_address_1, city, state, zip, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-              street_address,
-              city,
-              state,
-              zip,
-              coords?.lat || null,
-              coords?.lng || null,
-            ],
-          );
-          locationId = locResult.insertId;
-        }
-
-        // Create Resource (uses first category_id)
-        const categoryId = category_ids[0];
-        const [resourceResult] = await conn.query(
-          `INSERT INTO Resource (provider_id, category_id, location_id, name, description, hours, eligibility_requirements, phone, website, languages, social_media_links)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            provider_id,
-            categoryId,
-            locationId,
-            name,
-            description || null,
-            hours,
-            eligibility_requirements || null,
-            phone,
-            website || null,
-            languages || null,
-            social_media_links || null,
-          ],
-        );
-
-        await conn.commit();
-
-        await logAudit(
-          pool,
-          1,
-          "CREATE_RESOURCE",
-          "Resource",
-          resourceResult.insertId,
-        );
-
-        res.status(201).json({
-          message: "Resource created successfully",
-          resource_id: resourceResult.insertId,
-        });
-      } catch (err) {
-        await conn.rollback();
-        console.error("Error creating resource:", err);
-        res.status(500).json({ error: "Failed to create resource" });
-      } finally {
+      if (
+        !provider_id ||
+        !name ||
+        !street_address ||
+        !city ||
+        !state ||
+        !zip ||
+        !hours ||
+        !category_ids ||
+        category_ids.length === 0
+      ) {
         conn.release();
+        return res.status(400).json({ error: "Missing required fields." });
       }
-    },
-  );
 
-  // PUT /api/resources/:id
-  // Updates an existing resource
-  app.put(
-    "/api/resources/:id",
-    requireRole(pool, "provider"),
-    async (req, res) => {
-      try {
-        const resourceId = req.params.id;
-        const {
+      await conn.beginTransaction();
+
+      // Geocode address for lat/lng
+      const coords = await geocodeAddress({
+        street: street_address,
+        city,
+        state,
+        zip
+      });
+
+      // Reuse existing location if same coordinates exist
+      let locationId;
+      if (coords?.lat != null && coords?.lng != null) {
+        const [existing] = await conn.query(
+          `SELECT location_id FROM Location WHERE latitude = ? AND longitude = ?`,
+          [coords.lat, coords.lng]
+        );
+
+        if (existing.length > 0) {
+          locationId = existing[0].location_id;
+        }
+      }
+
+      // Insert new location if needed
+      if (!locationId) {
+        const [locResult] = await conn.query(
+          `INSERT INTO Location (street_address_1, city, state, zip, latitude, longitude)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            street_address,
+            city,
+            state,
+            zip,
+            coords?.lat || null,
+            coords?.lng || null
+          ]
+        );
+        locationId = locResult.insertId;
+      }
+
+      // Use first category_id for now
+      const categoryId = category_ids[0];
+
+      const [resourceResult] = await conn.query(
+        `INSERT INTO Resource (
+          provider_id,
           category_id,
           location_id,
           name,
@@ -264,57 +225,138 @@ module.exports = function (app, pool) {
           hours,
           image_url,
           eligibility_requirements,
-        } = req.body;
+          contact_name,
+          contact_email,
+          contact_phone,
+          languages_spoken,
+          accessibility,
+          social_media_links
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          provider_id,
+          categoryId,
+          locationId,
+          name,
+          description || null,
+          hours,
+          image_url || null,
+          eligibility_requirements || null,
+          contact_name || null,
+          contact_email || null,
+          contact_phone || null,
+          languages_spoken || null,
+          accessibility || null,
+          social_media_links || null
+        ]
+      );
 
-        const query = `
+      await conn.commit();
+
+      await logAudit(
+        pool,
+        1,
+        "CREATE_RESOURCE",
+        "Resource",
+        resourceResult.insertId
+      );
+
+      res.status(201).json({
+        message: "Resource created successfully",
+        resource_id: resourceResult.insertId
+      });
+    } catch (err) {
+      await conn.rollback();
+      console.error("Error creating resource:", err);
+      res.status(500).json({ error: "Failed to create resource" });
+    } finally {
+      conn.release();
+    }
+  });
+
+  // PUT /api/resources/:id
+  // Updates an existing resource
+  app.put("/api/resources/:id", requireRole(pool, "provider"), async (req, res) => {
+    try {
+      const resourceId = req.params.id;
+      const {
+        category_id,
+        location_id,
+        name,
+        description,
+        hours,
+        image_url,
+        eligibility_requirements,
+        contact_name,
+        contact_email,
+        contact_phone,
+        languages_spoken,
+        accessibility,
+        social_media_links
+      } = req.body;
+
+      const query = `
         UPDATE Resource
-        SET category_id = ?, location_id = ?, name = ?, description = ?, hours = ?, image_url = ?, eligibility_requirements = ?
+        SET
+          category_id = ?,
+          location_id = ?,
+          name = ?,
+          description = ?,
+          hours = ?,
+          image_url = ?,
+          eligibility_requirements = ?,
+          contact_name = ?,
+          contact_email = ?,
+          contact_phone = ?,
+          languages_spoken = ?,
+          accessibility = ?,
+          social_media_links = ?
         WHERE resource_id = ?
       `;
 
-        await pool
-          .promise()
-          .query(query, [
-            category_id,
-            location_id,
-            name,
-            description || null,
-            hours || null,
-            image_url || null,
-            eligibility_requirements || null,
-            resourceId,
-          ]);
+      await pool.promise().query(query, [
+        category_id,
+        location_id,
+        name,
+        description || null,
+        hours || null,
+        image_url || null,
+        eligibility_requirements || null,
+        contact_name || null,
+        contact_email || null,
+        contact_phone || null,
+        languages_spoken || null,
+        accessibility || null,
+        social_media_links || null,
+        resourceId
+      ]);
 
-        await logAudit(pool, 1, "UPDATE_RESOURCE", "Resource", resourceId);
+      await logAudit(pool, 1, "UPDATE_RESOURCE", "Resource", resourceId);
 
-        res.json({ message: "Resource updated successfully" });
-      } catch (err) {
-        console.error("Error updating resource:", err);
-        res.status(500).json({ error: "Failed to update resource" });
-      }
-    },
-  );
+      res.json({ message: "Resource updated successfully" });
+    } catch (err) {
+      console.error("Error updating resource:", err);
+      res.status(500).json({ error: "Failed to update resource" });
+    }
+  });
 
   // DELETE /api/resources/:id
   // Deletes a resource
-  app.delete(
-    "/api/resources/:id",
-    requireRole(pool, "provider"),
-    async (req, res) => {
-      try {
-        const resourceId = req.params.id;
+  app.delete("/api/resources/:id", requireRole(pool, "provider"), async (req, res) => {
+    try {
+      const resourceId = req.params.id;
 
-        await pool
-          .promise()
-          .query("DELETE FROM Resource WHERE resource_id = ?", [resourceId]);
+      await pool.promise().query(
+        "DELETE FROM Resource WHERE resource_id = ?",
+        [resourceId]
+      );
 
-        await logAudit(pool, 1, "DELETE_RESOURCE", "Resource", resourceId);
+      await logAudit(pool, 1, "DELETE_RESOURCE", "Resource", resourceId);
 
-        res.json({ message: "Resource deleted successfully" });
-      } catch (err) {
-        console.error("Error deleting resource:", err);
-        res.status(500).json({ error: "Failed to delete resource" });
-      }
-    },
-  );
+      res.json({ message: "Resource deleted successfully" });
+    } catch (err) {
+      console.error("Error deleting resource:", err);
+      res.status(500).json({ error: "Failed to delete resource" });
+    }
+  });
 };
