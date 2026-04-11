@@ -7,7 +7,7 @@ import {
     useMap,
 } from "@vis.gl/react-google-maps";
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button, Container, Form, Modal } from "react-bootstrap";
 import "../App.css";
 import MapPinDetails from "../components/MapPinDetails";
@@ -17,6 +17,22 @@ const API_URL = process.env.REACT_APP_API_URL;
 
 // Set the initial center of the map to the middle of Atlanta
 const DEFAULT_CENTER = { lat: 33.749, lng: -84.388 };
+
+// Calculate distance in miles using Haversine formula
+// Note: This function is 100% AI-generated
+function calculateDistanceInMiles(lat1, lon1, lat2, lon2) {
+    const R = 3958.8; // Radius of the earth in miles
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) *
+        Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
 
 // Hook into the mapping library's context
 function MapUpdater({ userLocation }) {
@@ -47,6 +63,46 @@ function Maps() {
     const [addressInput, setAddressInput] = useState(() => localStorage.getItem("userSavedAddress") || "");
     const [addressError, setAddressError] = useState("");
     const isMobileDevice = /Mobi|Android|iPhone/i.test(navigator.userAgent);
+    const [gpsActive, setGpsActive] = useState(() => {
+        return isMobileDevice && !localStorage.getItem("userSavedAddress");
+    });
+
+    const distanceInputRef = useRef(null);
+
+    // Initialize distance filter from localStorage
+    const [distanceInputVal, setDistanceInputVal] = useState(() => {
+        return localStorage.getItem("userSavedDistance") || "";
+    });
+    const [debouncedDistance, setDebouncedDistance] = useState(distanceInputVal);
+    const [distanceErrorMsg, setDistanceErrorMsg] = useState("");
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedDistance(distanceInputVal);
+            localStorage.setItem("userSavedDistance", distanceInputVal);
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [distanceInputVal]);
+
+    const handleDistanceChange = (e) => {
+        if (e.target.validity.badInput) {
+            setDistanceInputVal("");
+            setDistanceErrorMsg("Enter a number between 1 and 50");
+            return;
+        }
+        const val = e.target.value;
+        if (val === "") {
+            setDistanceInputVal("");
+            setDistanceErrorMsg("");
+        } else {
+            setDistanceInputVal(val);
+            if (parseFloat(val) <= 0) {
+                setDistanceErrorMsg("Enter a number between 1 and 50");
+            } else {
+                setDistanceErrorMsg("");
+            }
+        }
+    };
 
     const handleAddressSubmit = async (e) => {
         if (e) e.preventDefault();
@@ -68,12 +124,13 @@ function Maps() {
                 setUserLocation(newLocation);
                 localStorage.setItem("userSavedLocation", JSON.stringify(newLocation));
                 localStorage.setItem("userSavedAddress", addressInput);
+                setGpsActive(false);
                 setShowAddressModal(false);
             } else {
-                setAddressError("Geocoding failed. Please try a different address.");
+                setAddressError("Address not found. Please try a different address.");
             }
         } catch (err) {
-            console.error("Geocoding Error:", err);
+            console.error("Address not found:", err);
             setAddressError("An error occurred while communicating with the Maps API.");
         }
     };
@@ -165,19 +222,23 @@ function Maps() {
                             lat: position.coords.latitude,
                             lng: position.coords.longitude,
                         });
+                        setGpsActive(true);
                     },
                     (error) => {
                         // They clicked "Deny" or their device doesn't support it
                         console.warn("Location not provided. GPS error:", error);
+                        setGpsActive(false);
                         setShowAddressModal(true);
                     },
                 );
             } else {
                 console.warn("Geolocation not supported (might be an insecure HTTP connection).");
+                setGpsActive(false);
                 setShowAddressModal(true);
             }
         } else {
             // Desktop user: prompt them for an address immediately
+            setGpsActive(false);
             setShowAddressModal(true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -204,7 +265,23 @@ function Maps() {
         }));
     };
 
-    const filteredPins = mapPins.filter((pin) => filters[pin.color]);
+    const filteredPins = mapPins.filter((pin) => {
+        // 1. Filter by color category
+        if (!filters[pin.color]) return false;
+
+        // 2. Filter by distance
+        const distLimit = parseFloat(debouncedDistance);
+        if (!isNaN(distLimit) && distLimit > 0 && userLocation) {
+            const dist = calculateDistanceInMiles(
+                userLocation.lat,
+                userLocation.lng,
+                pin.position.lat,
+                pin.position.lng
+            );
+            if (dist > distLimit) return false;
+        }
+        return true;
+    });
 
     return (
         <Container
@@ -324,17 +401,20 @@ function Maps() {
                                 className="mb-0"
                             />
                         </div>
-                        {/* TODO: Update the distance filter to use the user's location */}
                         <div className="d-flex align-items-center mt-3">
                             <Form.Label className="mb-0 me-2" style={{ fontWeight: 500 }}>
                                 Distance
                             </Form.Label>
                             <Form.Control
                                 type="number"
-                                min="0"
-                                max="999"
-                                style={{ width: "70px", padding: "0.25rem 0.5rem" }}
+                                step="any"
+                                min="1"
+                                style={{ width: "80px", padding: "0.25rem 0.5rem" }}
                                 className="me-2 text-center"
+                                value={distanceInputVal}
+                                onChange={handleDistanceChange}
+                                ref={distanceInputRef}
+                                isInvalid={!!distanceErrorMsg}
                                 onClick={() => {
                                     if (!userLocation) {
                                         setShowAddressModal(true);
@@ -343,12 +423,35 @@ function Maps() {
                             />
                             <span style={{ fontWeight: 500 }}>miles</span>
                         </div>
+                        {distanceErrorMsg && (
+                            <div className="text-danger mt-1" style={{ fontSize: "0.85rem" }}>
+                                {distanceErrorMsg}
+                            </div>
+                        )}
+
+                        {!gpsActive && (
+                            <div className="mt-3">
+                                <Button 
+                                    variant="outline-secondary" 
+                                    size="sm" 
+                                    className="w-100"
+                                    onClick={() => setShowAddressModal(true)}
+                                >
+                                    Set my location
+                                </Button>
+                            </div>
+                        )}
                     </Form>
                 )}
             </div>
 
             {/* Address Prompt Modal */}
-            <Modal show={showAddressModal} onHide={() => setShowAddressModal(false)} centered>
+            <Modal show={showAddressModal} onHide={() => {
+                setShowAddressModal(false);
+                if (!userLocation && distanceInputRef.current) {
+                    distanceInputRef.current.blur();
+                }
+            }} centered>
                 <Modal.Header closeButton>
                     <Modal.Title style={{ color: "var(--gold)" }}>Your Location</Modal.Title>
                 </Modal.Header>
@@ -374,7 +477,12 @@ function Maps() {
                     </Form>
                 </Modal.Body>
                 <Modal.Footer>
-                    <Button variant="secondary" onClick={() => setShowAddressModal(false)}>
+                    <Button variant="secondary" onClick={() => {
+                        setShowAddressModal(false);
+                        if (!userLocation && distanceInputRef.current) {
+                            distanceInputRef.current.blur();
+                        }
+                    }}>
                         Cancel
                     </Button>
                     <Button variant="primary" onClick={handleAddressSubmit} style={{ backgroundColor: "var(--gold)", borderColor: "var(--gold)", color: "black", fontWeight: 500 }}>
