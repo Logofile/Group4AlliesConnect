@@ -240,11 +240,13 @@ module.exports = function (app, pool) {
         p.last_name,
         p.phone,
         p.zip_code,
-        GROUP_CONCAT(r.role_name) AS roles
+        GROUP_CONCAT(DISTINCT r.role_name) AS roles,
+        spu.provider_id
        FROM User u
        JOIN UserProfile p ON u.user_id = p.user_id
        LEFT JOIN UserRole ur ON u.user_id = ur.user_id
        LEFT JOIN Role r ON ur.role_id = r.role_id
+       LEFT JOIN ServiceProviderUser spu ON u.user_id = spu.user_id
        WHERE u.user_id = ?
        GROUP BY u.user_id`,
         [userId],
@@ -265,6 +267,7 @@ module.exports = function (app, pool) {
         phone: user.phone,
         zip_code: user.zip_code,
         roles: user.roles ? user.roles.split(",") : [],
+        provider_id: user.provider_id || null,
       });
     } catch (err) {
       console.error("Error fetching user profile:", err);

@@ -1,18 +1,18 @@
 import { LocalizationProvider } from "@mui/x-date-pickers";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import { useState } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "./App.css";
+import AuthRoute from "./components/AuthRoute";
 import MyNavbar from "./components/navbar";
+import Admin from "./pages/adminPage";
 import Events from "./pages/events";
 import Home from "./pages/home";
 import Login from "./pages/login";
 import Maps from "./pages/maps";
-import Register from "./pages/register";
 import Provider from "./pages/provider";
+import Register from "./pages/register";
 import Volunteer from "./pages/volunteer";
-import Admin from "./pages/adminPage";
-import AuthRoute from "./components/AuthRoute";
 
 function App() {
   const [user, setUser] = useState(() => {
@@ -33,28 +33,42 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/maps" element={<Maps />} />
-          <Route path="/login" element={<Login setUser={setUser} setRole={setRole} />} />
+          <Route
+            path="/login"
+            element={<Login setUser={setUser} setRole={setRole} />}
+          />
           <Route path="/events" element={<Events />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/provider" element={
-            <AuthRoute user={user} role={role} requiredRole="provider">
-              <Provider />
-            </AuthRoute>
-            } 
+          <Route
+            path="/provider"
+            element={
+              <AuthRoute user={user} role={role} requiredRole="provider">
+                <Provider
+                  user={user}
+                  setUser={setUser}
+                  role={role}
+                  setRole={setRole}
+                />
+              </AuthRoute>
+            }
           />
-          <Route path="/volunteer" element={
-            <AuthRoute user={user} role={role} requiredRole="volunteer">
-              <Volunteer />
-            </AuthRoute>
-            } />
-          <Route path="/admin" element={
-            <AuthRoute user={user} role={role} requiredRole="admin">
-              <Admin />
-            </AuthRoute>
-            } 
+          <Route
+            path="/volunteer"
+            element={
+              <AuthRoute user={user} role={role} requiredRole="volunteer">
+                <Volunteer />
+              </AuthRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <AuthRoute user={user} role={role} requiredRole="admin">
+                <Admin />
+              </AuthRoute>
+            }
           />
         </Routes>
-
       </BrowserRouter>
     </LocalizationProvider>
   );
