@@ -202,7 +202,7 @@ function EditAccountsContent({ onViewDetails }) {
 
 function ManageResourcesContent({ onViewDetails }) {
     const [resources, setResources] = useState([]);
-    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(resources, ["name", "location", "organization", "date_created", "date_updated"]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(resources, ["name", "provider_name", "category_name", "city", "state"]);
 
     useEffect(() => {
         fetchResources();
@@ -245,20 +245,24 @@ function ManageResourcesContent({ onViewDetails }) {
                     </tr>
                 </thead>
                 <tbody>
-                    {sortedData.map((resource) => (
-                        <tr key={resource.resource_id} className="text-center align-middle">
-                            <td>{resource.name || "N/A"}</td>
-                            <td>{resource.zip || "N/A"}</td>
-                            <td>{resource.provider_name || "N/A"}</td>
-                            <td>{resource.hours || "N/A"}</td>
-                            <td>{resource.category_name || "N/A"}</td>
-                            <td>
-                                <button className="outline-warning me-2" onClick={() => onViewDetails("manageResources", resource)}>
-                                    View Resource Details
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
+                    {sortedData.length === 0 ? (
+                        <tr><td colSpan={6}>No results found.</td></tr>
+                    ) : (
+                        sortedData.map((resource) => (
+                            <tr key={resource.resource_id} className="align-middle">
+                                <td>{resource.name}</td>
+                                <td>{resource.zip}</td>
+                                <td>{resource.provider_name}</td>
+                                <td>{resource.hours}</td>
+                                <td>{resource.category_name}</td>
+                                <td>
+                                    <button className="outline-warning me-2" onClick={() => onViewDetails("manageResources", resource)}>
+                                        View Resource Details
+                                    </button>
+                                </td>
+                            </tr>
+                        ))
+                    )}
                 </tbody>
             </Table>
         </>
@@ -267,7 +271,7 @@ function ManageResourcesContent({ onViewDetails }) {
 
 function ManageEventsContent({ onViewDetails }) {
     const [events, setEvents] = useState([]);
-    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(events, ["name", "location", "organization", "date_created", "date_updated"]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(events, ["title", "provider_name", "category_name", "city"]);
 
     useEffect(() => {
         fetchEvents();
@@ -283,6 +287,20 @@ function ManageEventsContent({ onViewDetails }) {
             alert("Error fetching events.");
             setEvents([]);
         }
+    };
+
+    const formatDisplayDateTime = (value) => {
+        if (!value) return "";
+        const date = new Date(value);
+        return date.toLocaleString("en-US", {
+            timeZone: "UTC",
+            month: "2-digit",
+            day: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+        });
     };
 
     return (
@@ -310,20 +328,24 @@ function ManageEventsContent({ onViewDetails }) {
                     </tr>
                 </thead>
                 <tbody>
-                    {sortedData.map((event) => (
-                        <tr key={event.event_id} className="text-center align-middle">
-                            <td>{event.title || "N/A"}</td>
-                            <td>{event.zip || "N/A"}</td>
-                            <td>{event.provider_name || "N/A"}</td>
-                            <td>{event.start_datetime || "N/A"}</td>
-                            <td>{event.category_name || "N/A"}</td>
-                            <td>
-                                <button className="outline-warning me-2" onClick={() => onViewDetails("manageEvents", event)}>
-                                    View Event Details
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
+                    {sortedData.length === 0 ? (
+                        <tr><td colSpan={6}>No results found.</td></tr>
+                    ) : (
+                        sortedData.map((event) => (
+                            <tr key={event.event_id} className="align-middle">
+                                <td>{event.title}</td>
+                                <td>{event.provider_name}</td>
+                                <td>{event.category_name}</td>
+                                <td>{formatDisplayDateTime(event.start_datetime)}</td>
+                                <td>{event.category_name}</td>
+                                <td>
+                                    <button className="outline-warning me-2" onClick={() => onViewDetails("manageEvents", event)}>
+                                        View Event Details
+                                    </button>
+                                </td>
+                            </tr>
+                        ))
+                    )}
                 </tbody>
             </Table>
         </>
@@ -332,65 +354,64 @@ function ManageEventsContent({ onViewDetails }) {
 
 function ManageVolunteersContent({ onViewDetails }) {
     const [volunteers, setVolunteers] = useState([]);
-    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(volunteers, ["name", "email", "roles", "date_created", "date_updated"]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(volunteers, ["title", "provider_name", "status", "contact_name", "contact_email"]);
 
-    useEffect(() => {
-        fetchVolunteers();
-    }, []);
+    useEffect(() => { fetchVolunteers(); }, []);
 
     const fetchVolunteers = async () => {
         try {
-            const response = await fetch("http://localhost:5000/api/admin/volunteers",
-                { headers: getAuthHeaders() });
+            const response = await fetch("http://localhost:5000/api/volunteer-opportunities");
             const data = await response.json();
             setVolunteers(Array.isArray(data) ? data : []);
-            console.log("Fetched resources:", data);
         } catch (error) {
-            console.error("Error fetching volunteers:", error);
-            alert("Error fetching volunteers.");
             setVolunteers([]);
         }
     };
 
     return (
         <>
-            <input type="text" className="form-control mb-3" placeholder="Search by name, email, or roles" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+            <input type="text" className="form-control mb-3" placeholder="Search by title, provider, or status"
+                value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
             <Table hover className="text-center">
                 <thead>
-                    <tr className="text-center">
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("name")}>
-                            Name {sortSymbol("name")}
+                    <tr>
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("title")}>
+                            Title {sortSymbol("title")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("email")}>
-                            Email {sortSymbol("email")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("provider_name")}>
+                            Provider {sortSymbol("provider_name")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("roles")}>
-                            Roles {sortSymbol("roles")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("status")}>
+                            Status {sortSymbol("status")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_created")}>
-                            Date Created {sortSymbol("date_created")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("contact_name")}>
+                            Contact {sortSymbol("contact_name")}
                         </th>
-                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("date_updated")}>
-                            Date Updated {sortSymbol("date_updated")}
+                        <th style={{ cursor: "pointer" }} onClick={() => handleSort("contact_email")}>
+                            Email {sortSymbol("contact_email")}
                         </th>
                         <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {sortedData.map((volunteer) => (
-                        <tr key={volunteer.username} className="text-center align-middle">
-                            <td>{volunteer.name || "N/A"}</td>
-                            <td>{volunteer.email || "N/A"}</td>
-                            <td>{volunteer.roles || "N/A"}</td>
-                            <td>{volunteer.date_created || "N/A"}</td>
-                            <td>{volunteer.date_updated || "N/A"}</td>
-                            <td>
-                                <button className="outline-warning me-2" onClick={() => onViewDetails("editVolunteers", volunteer)}>
-                                    View Volunteer Details
-                                </button>
-                            </td>
-                        </tr>
-                    ))}
+                    {sortedData.length === 0 ? (
+                        <tr><td colSpan={6}>No results found.</td></tr>
+                    ) : (
+                        sortedData.map((volunteer) => (
+                            <tr key={volunteer.opportunity_id} className="align-middle">
+                                <td>{volunteer.title}</td>
+                                <td>{volunteer.provider_name}</td>
+                                <td>{volunteer.status}</td>
+                                <td>{volunteer.contact_name}</td>
+                                <td>{volunteer.contact_email}</td>
+                                <td>
+                                    <button className="outline-warning me-2" onClick={() => onViewDetails("manageVolunteers", volunteer)}>
+                                        View Details
+                                    </button>
+                                </td>
+                            </tr>
+                        ))
+                    )}
                 </tbody>
             </Table>
         </>
@@ -399,7 +420,7 @@ function ManageVolunteersContent({ onViewDetails }) {
 
 function ReviewLogDataContent({ onViewDetails }) {
     const [logs, setLogs] = useState([]);
-    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(logs, ["name", "email", "data", "message"]);
+    const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } = useTableDataProcessing(logs, ["action", "entity_type", "actor_user_id", "occured_at"]);
 
     useEffect(() => {
         fetchLogs();
@@ -440,7 +461,7 @@ function ReviewLogDataContent({ onViewDetails }) {
                         <th style={{ cursor: "pointer" }} onClick={() => handleSort("occured_at")}>
                             Date {sortSymbol("occured_at")}
                         </th>
-                        <th>Action</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
                 <tbody>

@@ -216,14 +216,19 @@ function ManageEventsContent({ data, onSave }) {
         }
     };
 
+    const toDateTimeLocal = (value) => {
+        if (!value) return "";
+        return value.slice(0, 16); // trims to "yyyy-MM-ddThh:mm"
+    };
+
     return (
         <>
             <EditableField label="Event ID" value={form.event_id} readOnly />
             <EditableField label="Provider" value={form.provider_name} readOnly />
             <EditableField label="Title" value={form.title} onChange={set("title")} />
             <EditableField label="Description" value={form.description} onChange={set("description")} />
-            <EditableField label="Start Date/Time" value={form.start_datetime} onChange={set("start_datetime")} type="datetime-local" />
-            <EditableField label="End Date/Time" value={form.end_datetime} onChange={set("end_datetime")} type="datetime-local" />
+            <EditableField label="Start Date/Time" value={toDateTimeLocal(form.start_datetime)} onChange={set("start_datetime")} type="datetime-local" />
+            <EditableField label="End Date/Time" value={toDateTimeLocal(form.end_datetime)} onChange={set("end_datetime")} type="datetime-local" />
             <EditableField label="Category" value={form.category_name} readOnly />
             <EditableField label="Registration Required" value={form.registration_required} onChange={set("registration_required")} />
             <EditableField label="Special Instructions" value={form.special_instructions} onChange={set("special_instructions")} />
@@ -253,33 +258,57 @@ function ManageVolunteersContent({ data, onSave }) {
     const handleSave = async () => {
         try {
             await axios.put(
-                `http://localhost:5000/api/users/profile/${form.user_id}`,
+                `http://localhost:5000/api/volunteer-opportunities/${form.opportunity_id}`,
                 {
-                    first_name: form.first_name,
-                    last_name: form.last_name,
-                    phone: form.phone,
-                    zip_code: form.zip_code
+                    location_id: form.location_id,
+                    event_id: form.event_id,
+                    resource_id: form.resource_id,
+                    title: form.title,
+                    status: form.status,
+                    contact_name: form.contact_name,
+                    contact_email: form.contact_email,
+                    contact_phone: form.contact_phone
                 },
                 { headers: getAuthHeaders() }
             );
-            alert("Volunteer updated successfully.");
+            alert("Volunteer opportunity updated successfully.");
             onSave();
         } catch (error) {
-            alert("Error updating volunteer.");
+            alert("Error updating volunteer opportunity.");
+        }
+    };
+
+    const handleDeactivate = async () => {
+        if (!window.confirm("Deactivate this volunteer opportunity?")) return;
+        try {
+            await axios.patch(
+                `http://localhost:5000/api/admin/content/opportunity/${form.opportunity_id}`,
+                {},
+                { headers: getAuthHeaders() }
+            );
+            alert("Volunteer opportunity deactivated.");
+            onSave();
+        } catch (error) {
+            alert("Error deactivating volunteer opportunity.");
         }
     };
 
     return (
         <>
-            <EditableField label="Email" value={form.email} readOnly />
-            <EditableField label="Roles" value={form.roles} readOnly />
-            <EditableField label="First Name" value={form.first_name} onChange={set("first_name")} />
-            <EditableField label="Last Name" value={form.last_name} onChange={set("last_name")} />
-            <EditableField label="Phone" value={form.phone} onChange={set("phone")} />
-            <EditableField label="ZIP Code" value={form.zip_code} onChange={set("zip_code")} />
+            <EditableField label="Opportunity ID" value={form.opportunity_id} readOnly />
+            <EditableField label="Provider" value={form.provider_name} readOnly />
+            <EditableField label="Title" value={form.title} onChange={set("title")} />
+            <EditableField label="Status" value={form.status} onChange={set("status")} />
+            <EditableField label="Contact Name" value={form.contact_name} onChange={set("contact_name")} />
+            <EditableField label="Contact Email" value={form.contact_email} onChange={set("contact_email")} />
+            <EditableField label="Contact Phone" value={form.contact_phone} onChange={set("contact_phone")} />
+            <EditableField label="City" value={form.city} readOnly />
+            <EditableField label="State" value={form.state} readOnly />
+            <EditableField label="Created At" value={form.created_at} readOnly />
             <Row className="justify-content-end mt-3">
                 <Col md={4}>
-                    <Button className="btn-gold w-100" onClick={handleSave}>Save Changes</Button>
+                    <Button className="btn-red mb-2" onClick={handleDeactivate}>Deactivate</Button>
+                    <Button className="btn-gold" onClick={handleSave}>Save Changes</Button>
                 </Col>
             </Row>
         </>
