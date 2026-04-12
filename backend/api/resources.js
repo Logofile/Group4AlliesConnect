@@ -1,6 +1,7 @@
 const { logAudit } = require("../utils/logging");
 const { requireRole } = require("../middleware/permissions");
 const { geocodeAddress } = require("../utils/geocode");
+const { rateLimit } = require("../middleware/rateLimit");
 
 module.exports = function (app, pool) {
   // GET /api/resources
@@ -137,6 +138,7 @@ module.exports = function (app, pool) {
   // Creates a new resource with location
   app.post(
     "/api/resources",
+    rateLimit(),
     requireRole(pool, "provider"),
     async (req, res) => {
       const conn = await pool.promise().getConnection();
@@ -160,6 +162,8 @@ module.exports = function (app, pool) {
           languages_spoken,
           accessibility,
           social_media_links,
+          latitude,
+          longitude,
         } = req.body;
 
         if (
@@ -179,13 +183,19 @@ module.exports = function (app, pool) {
 
         await conn.beginTransaction();
 
-        // Geocode address for lat/lng
-        const coords = await geocodeAddress({
-          street: street_address,
-          city,
-          state,
-          zip,
-        });
+        // Use frontend-provided coordinates if available, otherwise fall back
+        // to server-side geocoding
+        let coords = null;
+        if (latitude != null && longitude != null) {
+          coords = { lat: Number(latitude), lng: Number(longitude) };
+        } else {
+          coords = await geocodeAddress({
+            street: street_address,
+            city,
+            state,
+            zip,
+          });
+        }
 
         // Reuse existing location if same coordinates exist
         let locationId;
@@ -284,6 +294,7 @@ module.exports = function (app, pool) {
   // Updates an existing resource
   app.put(
     "/api/resources/:id",
+    rateLimit(),
     requireRole(pool, "provider"),
     async (req, res) => {
       try {

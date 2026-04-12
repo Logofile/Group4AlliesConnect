@@ -1,12 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "../../App.css";
+import AddressAutocomplete from "./AddressAutocomplete";
 import SocialMediaLinks from "./SocialMediaLinks";
-import {
-  API_URL,
-  DAYS_OF_WEEK,
-  TIME_OPTIONS,
-  US_STATES,
-} from "./providerHelpers";
+import { API_URL, DAYS_OF_WEEK, TIME_OPTIONS } from "./providerHelpers";
 
 function CreateResourceContent({ onViewDetails, providerId, userId }) {
   const [categories, setCategories] = useState([]);
@@ -23,6 +19,8 @@ function CreateResourceContent({ onViewDetails, providerId, userId }) {
     social_media_links: [],
     description: "",
     eligibility_requirements: "",
+    latitude: null,
+    longitude: null,
   });
   const [hours, setHours] = useState(() => {
     const init = {};
@@ -54,6 +52,19 @@ function CreateResourceContent({ onViewDetails, providerId, userId }) {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
+
+  // Called when the user selects a Places Autocomplete suggestion
+  const handleAddressSelect = useCallback((addressData) => {
+    setFormData((prev) => ({
+      ...prev,
+      street_address: addressData.street_address,
+      city: addressData.city,
+      state: addressData.state,
+      zip: addressData.zip,
+      latitude: addressData.latitude,
+      longitude: addressData.longitude,
+    }));
+  }, []);
 
   const handleHoursChange = (day, field, value) => {
     setHours((prev) => ({
@@ -149,6 +160,8 @@ function CreateResourceContent({ onViewDetails, providerId, userId }) {
           : null,
       description: formData.description || null,
       eligibility_requirements: formData.eligibility_requirements || null,
+      latitude: formData.latitude,
+      longitude: formData.longitude,
     };
 
     try {
@@ -180,6 +193,8 @@ function CreateResourceContent({ onViewDetails, providerId, userId }) {
         social_media_links: [],
         description: "",
         eligibility_requirements: "",
+        latitude: null,
+        longitude: null,
       });
       setSelectedCategories([]);
       setHours(() => {
@@ -219,80 +234,11 @@ function CreateResourceContent({ onViewDetails, providerId, userId }) {
         />
       </div>
 
-      {/* Street Address */}
-      <div className="mb-3">
-        <label className="form-label">
-          <strong>
-            Street Address <span className="text-danger">*</span>
-          </strong>
-        </label>
-        <input
-          type="text"
-          className="form-control"
-          name="street_address"
-          placeholder="Enter street address"
-          value={formData.street_address}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      {/* City / State / Zip */}
-      <div className="row mb-3">
-        <div className="col-md-5">
-          <label className="form-label">
-            <strong>
-              City <span className="text-danger">*</span>
-            </strong>
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            name="city"
-            placeholder="City"
-            value={formData.city}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className="col-md-3">
-          <label className="form-label">
-            <strong>
-              State <span className="text-danger">*</span>
-            </strong>
-          </label>
-          <select
-            className="form-select"
-            name="state"
-            value={formData.state}
-            onChange={handleChange}
-            required
-          >
-            {US_STATES.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="col-md-4">
-          <label className="form-label">
-            <strong>
-              Zip Code <span className="text-danger">*</span>
-            </strong>
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            name="zip"
-            placeholder="Zip Code"
-            value={formData.zip}
-            onChange={handleChange}
-            maxLength={9}
-            required
-          />
-        </div>
-      </div>
+      <AddressAutocomplete
+        formData={formData}
+        onChange={handleChange}
+        onAddressSelect={handleAddressSelect}
+      />
 
       {/* Hours of Operation */}
       <div className="mb-3">

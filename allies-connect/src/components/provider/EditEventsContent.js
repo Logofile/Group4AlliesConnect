@@ -5,6 +5,20 @@ import { API_URL, useTableDataProcessing } from "./providerHelpers";
 
 function EditEventsContent({ onViewDetails, providerId }) {
   const [events, setEvents] = useState([]);
+  const formatDateTime = (iso) => {
+    if (!iso) return "";
+    try {
+      const normalized =
+        typeof iso === "string" && iso.indexOf("T") === -1
+          ? iso.replace(" ", "T")
+          : iso;
+      const d = new Date(normalized);
+      if (isNaN(d)) return iso;
+      return d.toLocaleString();
+    } catch (e) {
+      return iso;
+    }
+  };
   const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } =
     useTableDataProcessing(events, "title");
 
@@ -76,7 +90,7 @@ function EditEventsContent({ onViewDetails, providerId }) {
             sortedData.map((event) => (
               <tr key={event.event_id} className="text-center align-middle">
                 <td>{event.title}</td>
-                <td>{event.start_datetime}</td>
+                <td>{formatDateTime(event.start_datetime)}</td>
                 <td>{event.category_name}</td>
                 <td>
                   {event.city}, {event.state}

@@ -1,5 +1,8 @@
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 const saltRounds = 10;
+const { rateLimit } = require("../middleware/rateLimit");
 
 // Validate phone number format (10 digits)
 const isValidPhoneFormat = (phone) => {
@@ -33,197 +36,361 @@ const isValidUsernameFormat = (username) => {
 module.exports = function (app, pool) {
   // POST /api/auth/register
   // Create a new user account and profile
-  app.post("/api/auth/register", async (req, res) => {
-    try {
-      const {
-        username,
-        email,
-        password,
-        first_name,
-        last_name,
-        phone,
-        zip_code,
-        role,
-      } = req.body;
+  app.post(
+    "/api/auth/register",
+    rateLimit({ windowMs: 60000, max: 5 }),
+    async (req, res) => {
+      try {
+        const {
+          username,
+          email,
+          password,
+          first_name,
+          last_name,
+          phone,
+          zip_code,
+          role,
+        } = req.body;
 
-      if (
-        !username ||
-        !email ||
-        !password ||
-        !first_name ||
-        !last_name ||
-        !phone ||
-        !zip_code ||
-        !role
-      ) {
-        return res.status(400).json({
-          error:
-            "username, email, password, first_name, last_name, phone, zip_code, and role are required",
-        });
-      }
+        if (
+          !username ||
+          !email ||
+          !password ||
+          !first_name ||
+          !last_name ||
+          !phone ||
+          !zip_code ||
+          !role
+        ) {
+          return res.status(400).json({
+            error:
+              "username, email, password, first_name, last_name, phone, zip_code, and role are required",
+          });
+        }
 
-      const allowedRoles = ["volunteer"];
-      if (!allowedRoles.includes(role)) {
-        return res.status(400).json({
-          error: "role must be one of: " + allowedRoles.join(", "),
-        });
-      }
+        const allowedRoles = ["volunteer"];
+        if (!allowedRoles.includes(role)) {
+          return res.status(400).json({
+            error: "role must be one of: " + allowedRoles.join(", "),
+          });
+        }
 
-      if (!isValidPhoneFormat(phone)) {
-        return res.status(400).json({
-          error: "Phone number must be a valid 10-digit format",
-        });
-      }
+        if (!isValidPhoneFormat(phone)) {
+          return res.status(400).json({
+            error: "Phone number must be a valid 10-digit format",
+          });
+        }
 
-      if (!isValidEmailFormat(email)) {
-        return res.status(400).json({
-          error: "Email must be in a valid format (e.g., user@example.com)",
-        });
-      }
+        if (!isValidEmailFormat(email)) {
+          return res.status(400).json({
+            error: "Email must be in a valid format (e.g., user@example.com)",
+          });
+        }
 
-      if (!isValidUsernameFormat(username)) {
-        return res.status(400).json({
-          error:
-            "Username must be 3-50 characters and contain only letters, numbers, underscores, and hyphens (no spaces)",
-        });
-      }
+        if (!isValidUsernameFormat(username)) {
+          return res.status(400).json({
+            error:
+              "Username must be 3-50 characters and contain only letters, numbers, underscores, and hyphens (no spaces)",
+          });
+        }
 
-      if (!isValidPasswordFormat(password)) {
-        return res.status(400).json({
-          error:
-            "Password must be more than 6 characters and include at least one capital letter and one special character (!@#$%^&*()_+-=[]{}|;:',./~`), and cannot contain spaces",
-        });
-      }
+        if (!isValidPasswordFormat(password)) {
+          return res.status(400).json({
+            error:
+              "Password must be more than 6 characters and include at least one capital letter and one special character (!@#$%^&*()_+-=[]{}|;:',./~`), and cannot contain spaces",
+          });
+        }
 
-      const [existingUsers] = await pool.promise().query(
-        `SELECT u.user_id FROM User u
+        const [existingUsers] = await pool.promise().query(
+          `SELECT u.user_id FROM User u
            JOIN UserRole ur ON u.user_id = ur.user_id
            JOIN Role r ON ur.role_id = r.role_id
            WHERE u.email = ? AND r.role_name = ?`,
-        [email, role],
-      );
+          [email, role],
+        );
 
-      if (existingUsers.length > 0) {
-        return res.status(400).json({
-          error: "An account with that email already exists",
+        if (existingUsers.length > 0) {
+          return res.status(400).json({
+            error: "An account with that email already exists",
+          });
+        }
+
+        const [existingUsernames] = await pool
+          .promise()
+          .query("SELECT user_id FROM User WHERE username = ?", [username]);
+
+        if (existingUsernames.length > 0) {
+          return res.status(400).json({
+            error: "That username is already in use",
+          });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        const [userResult] = await pool
+          .promise()
+          .query(
+            "INSERT INTO User (username, email, password_hash, status) VALUES (?, ?, ?, 'active')",
+            [username, email, hashedPassword],
+          );
+
+        const userId = userResult.insertId;
+
+        await pool
+          .promise()
+          .query(
+            "INSERT INTO UserProfile (user_id, first_name, last_name, phone, zip_code) VALUES (?, ?, ?, ?, ?)",
+            [userId, first_name, last_name, phone, zip_code],
+          );
+
+        await pool
+          .promise()
+          .query(
+            "INSERT INTO UserRole (user_id, role_id) SELECT ?, role_id FROM Role WHERE role_name = ?",
+            [userId, role],
+          );
+
+        res.status(201).json({
+          message: "User registered successfully",
+          user_id: userId,
         });
+      } catch (err) {
+        console.error("Error registering user:", err);
+        res.status(500).json({ error: "Failed to register user" });
       }
-
-      const [existingUsernames] = await pool
-        .promise()
-        .query("SELECT user_id FROM User WHERE username = ?", [username]);
-
-      if (existingUsernames.length > 0) {
-        return res.status(400).json({
-          error: "That username is already in use",
-        });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-      const [userResult] = await pool
-        .promise()
-        .query(
-          "INSERT INTO User (username, email, password_hash, status) VALUES (?, ?, ?, 'active')",
-          [username, email, hashedPassword],
-        );
-
-      const userId = userResult.insertId;
-
-      await pool
-        .promise()
-        .query(
-          "INSERT INTO UserProfile (user_id, first_name, last_name, phone, zip_code) VALUES (?, ?, ?, ?, ?)",
-          [userId, first_name, last_name, phone, zip_code],
-        );
-
-      await pool
-        .promise()
-        .query(
-          "INSERT INTO UserRole (user_id, role_id) SELECT ?, role_id FROM Role WHERE role_name = ?",
-          [userId, role],
-        );
-
-      res.status(201).json({
-        message: "User registered successfully",
-        user_id: userId,
-      });
-    } catch (err) {
-      console.error("Error registering user:", err);
-      res.status(500).json({ error: "Failed to register user" });
-    }
-  });
+    },
+  );
 
   // POST /api/auth/login
   // Basic login check + return user roles
-  app.post("/api/auth/login", async (req, res) => {
-    try {
-      const { username, password } = req.body;
+  app.post(
+    "/api/auth/login",
+    rateLimit({ windowMs: 60000, max: 10 }),
+    async (req, res) => {
+      try {
+        const { username, password } = req.body;
 
-      if (!username || !password) {
-        return res.status(400).json({
-          error: "email and password are required",
-        });
-      }
+        if (!username || !password) {
+          return res.status(400).json({
+            error: "email and password are required",
+          });
+        }
 
-      const [rows] = await pool
-        .promise()
-        .query("SELECT * FROM User WHERE username = ?", [username]);
+        const [rows] = await pool
+          .promise()
+          .query("SELECT * FROM User WHERE username = ?", [username]);
 
-      if (rows.length === 0) {
-        return res.status(401).json({ error: "Invalid username or password" });
-      }
+        if (rows.length === 0) {
+          return res
+            .status(401)
+            .json({ error: "Invalid username or password" });
+        }
 
-      const user = rows[0];
+        const user = rows[0];
 
-      const passwordMatch = await bcrypt.compare(password, user.password_hash);
+        const passwordMatch = await bcrypt.compare(
+          password,
+          user.password_hash,
+        );
 
-      if (!passwordMatch) {
-        return res.status(401).json({ error: "Invalid username or password" });
-      }
+        if (!passwordMatch) {
+          return res
+            .status(401)
+            .json({ error: "Invalid username or password" });
+        }
 
-      const [roleRows] = await pool.promise().query(
-        `SELECT r.role_name
+        const [roleRows] = await pool.promise().query(
+          `SELECT r.role_name
          FROM UserRole ur
          JOIN Role r ON ur.role_id = r.role_id
          WHERE ur.user_id = ?`,
-        [user.user_id],
-      );
+          [user.user_id],
+        );
 
-      const roles = roleRows.map((role) => role.role_name);
+        const roles = roleRows.map((role) => role.role_name);
 
-      res.json({
-        message: "Login successful",
-        user_id: user.user_id,
-        username: user.username,
-        email: user.email,
-        status: user.status,
-        roles: roles,
-      });
-    } catch (err) {
-      console.error("Error logging in:", err);
-      res.status(500).json({ error: "Failed to log in" });
-    }
-  });
-
-  // POST /api/auth/password-reset
-  // Placeholder until email reset flow is implemented
-  app.post("/api/auth/password-reset", async (req, res) => {
-    try {
-      const { email } = req.body;
-
-      if (!email) {
-        return res.status(400).json({ error: "email is required" });
+        res.json({
+          message: "Login successful",
+          user_id: user.user_id,
+          username: user.username,
+          email: user.email,
+          status: user.status,
+          roles: roles,
+        });
+      } catch (err) {
+        console.error("Error logging in:", err);
+        res.status(500).json({ error: "Failed to log in" });
       }
+    },
+  );
 
-      res.json({
-        message: "Password reset process not implemented yet",
-      });
-    } catch (err) {
-      console.error("Error initiating password reset:", err);
-      res.status(500).json({ error: "Failed to start password reset" });
-    }
-  });
+  // POST /api/auth/forgot-password
+  // Generates a reset token, stores it in DB, and emails a reset link
+  app.post(
+    "/api/auth/forgot-password",
+    rateLimit({ windowMs: 60000, max: 3 }),
+    async (req, res) => {
+      try {
+        const { email } = req.body;
+
+        if (!email) {
+          return res.status(400).json({ error: "Email is required" });
+        }
+
+        // Always return success to avoid leaking whether an account exists
+        const successMsg =
+          "If an account with that email exists, a password reset link has been sent.";
+
+        // Look up user by email
+        const [users] = await pool
+          .promise()
+          .query("SELECT user_id, username FROM `User` WHERE email = ?", [
+            email,
+          ]);
+
+        if (users.length === 0) {
+          return res.json({ message: successMsg });
+        }
+
+        const user = users[0];
+
+        // Generate a secure random token
+        const token = crypto.randomBytes(32).toString("hex");
+        // Use UTC string so it matches MySQL's NOW() (which runs in UTC)
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000)
+          .toISOString()
+          .slice(0, 19)
+          .replace("T", " ");
+
+        // Invalidate any existing unused tokens for this user
+        await pool
+          .promise()
+          .query(
+            "UPDATE PasswordResetToken SET used = TRUE WHERE user_id = ? AND used = FALSE",
+            [user.user_id],
+          );
+
+        // Store the new token
+        await pool
+          .promise()
+          .query(
+            "INSERT INTO PasswordResetToken (user_id, token, expires_at) VALUES (?, ?, ?)",
+            [user.user_id, token, expiresAt],
+          );
+
+        // Build the reset link
+        const frontendUrl = process.env.REACT_APP_API_URL
+          ? process.env.REACT_APP_API_URL.replace(":5000", ":3000")
+          : "http://localhost:3000";
+        const resetLink = `${frontendUrl}/reset-password/${token}`;
+
+        // Send email if SMTP is configured, otherwise log the link to console
+        if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+          const transporter = nodemailer.createTransport({
+            host: process.env.SMTP_HOST || "smtp.gmail.com",
+            port: parseInt(process.env.SMTP_PORT || "587"),
+            secure: false,
+            auth: {
+              user: process.env.SMTP_USER,
+              pass: process.env.SMTP_PASS,
+            },
+          });
+
+          await transporter.sendMail({
+            from: process.env.SMTP_FROM || process.env.SMTP_USER,
+            to: email,
+            subject: "Allies Connect — Password Reset",
+            html: `
+            <h2>Password Reset Request</h2>
+            <p>Hi ${user.username},</p>
+            <p>We received a request to reset your password. Click the link below to set a new password:</p>
+            <p><a href="${resetLink}">${resetLink}</a></p>
+            <p>This link will expire in 1 hour.</p>
+            <p>If you did not request this, you can safely ignore this email.</p>
+            <br/>
+            <p>— Allies Connect</p>
+          `,
+          });
+
+          console.log(`Password reset email sent to ${email}`);
+          res.json({ message: successMsg });
+        }
+      } catch (err) {
+        console.error("Error in forgot-password:", err);
+        // Still return success to avoid leaking info, but log the error
+        res.json({
+          message:
+            "If an account with that email exists, a password reset link has been sent.",
+        });
+      }
+    },
+  );
+
+  // POST /api/auth/reset-password/:token
+  // Validates the token and updates the user's password
+  app.post(
+    "/api/auth/reset-password/:token",
+    rateLimit({ windowMs: 60000, max: 5 }),
+    async (req, res) => {
+      try {
+        const { token } = req.params;
+        const { password } = req.body;
+
+        if (!password) {
+          return res.status(400).json({ error: "New password is required" });
+        }
+
+        if (!isValidPasswordFormat(password)) {
+          return res.status(400).json({
+            error:
+              "Password must be more than 6 characters and include at least one capital letter and one special character (!@#$%^&*()_+-=[]{}|;:',./~`), and cannot contain spaces",
+          });
+        }
+
+        // Find the token in the database
+        const [tokens] = await pool
+          .promise()
+          .query(
+            "SELECT * FROM PasswordResetToken WHERE token = ? AND used = FALSE AND expires_at > NOW()",
+            [token],
+          );
+
+        if (tokens.length === 0) {
+          return res.status(400).json({
+            error: "Invalid or expired reset link. Please request a new one.",
+          });
+        }
+
+        const resetToken = tokens[0];
+
+        // Hash the new password
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        // Update the user's password
+        await pool
+          .promise()
+          .query("UPDATE `User` SET password_hash = ? WHERE user_id = ?", [
+            hashedPassword,
+            resetToken.user_id,
+          ]);
+
+        // Mark the token as used
+        await pool
+          .promise()
+          .query(
+            "UPDATE PasswordResetToken SET used = TRUE WHERE token_id = ?",
+            [resetToken.token_id],
+          );
+
+        res.json({
+          message: "Password has been reset successfully. You can now log in.",
+        });
+      } catch (err) {
+        console.error("Error resetting password:", err);
+        res.status(500).json({ error: "Failed to reset password" });
+      }
+    },
+  );
 
   // GET /api/users/profile/:id
   // Retrieve user profile
@@ -277,7 +444,7 @@ module.exports = function (app, pool) {
 
   // PUT /api/users/profile/:id
   // Update user profile
-  app.put("/api/users/profile/:id", async (req, res) => {
+  app.put("/api/users/profile/:id", rateLimit(), async (req, res) => {
     try {
       const userId = req.params.id;
       const { first_name, last_name, phone, zip_code } = req.body;
