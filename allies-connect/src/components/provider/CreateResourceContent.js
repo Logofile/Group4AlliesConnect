@@ -8,7 +8,7 @@ import {
   US_STATES,
 } from "./providerHelpers";
 
-function CreateResourceContent({ onViewDetails, providerId }) {
+function CreateResourceContent({ onViewDetails, providerId, userId }) {
   const [categories, setCategories] = useState([]);
   const [selectedCategories, setSelectedCategories] = useState([]);
   const [formData, setFormData] = useState({
@@ -102,8 +102,7 @@ function CreateResourceContent({ onViewDetails, providerId }) {
       !formData.street_address ||
       !formData.city ||
       !formData.state ||
-      !formData.zip ||
-      !formData.phone
+      !formData.zip
     ) {
       alert("Please fill in all required fields.");
       return;
@@ -155,7 +154,10 @@ function CreateResourceContent({ onViewDetails, providerId }) {
     try {
       const response = await fetch(`${API_URL}/api/resources`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-user-id": userId,
+        },
         body: JSON.stringify(payload),
       });
 

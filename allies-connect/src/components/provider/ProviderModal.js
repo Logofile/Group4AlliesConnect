@@ -81,9 +81,11 @@ function ProviderModal({ show, onHide, type, providerId, userId }) {
         show={!!detailModalType}
         type={detailModalType}
         data={selectedData}
+        userId={userId}
         onHide={() => {
           setDetailModalType("");
           setSelectedData(null);
+          setOpenKey((k) => k + 1);
         }}
       />
     </Modal>

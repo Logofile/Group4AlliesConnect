@@ -20,6 +20,12 @@ module.exports = function (app, pool) {
           r.hours,
           r.image_url,
           r.eligibility_requirements,
+          r.contact_name,
+          r.contact_email,
+          r.contact_phone,
+          r.languages_spoken,
+          r.accessibility,
+          r.social_media_links,
           s.name AS provider_name,
           c.name AS category_name,
           l.street_address_1,
@@ -75,11 +81,13 @@ module.exports = function (app, pool) {
           r.hours,
           r.image_url,
           r.eligibility_requirements,
+          r.contact_name,
+          r.contact_email,
+          r.contact_phone,
+          r.languages_spoken,
+          r.accessibility,
+          r.social_media_links,
           s.name AS provider_name,
-          s.website,
-          s.contact_name,
-          s.contact_email,
-          s.contact_phone,
           c.name AS category_name,
           l.street_address_1,
           l.street_address_2,
@@ -132,6 +140,7 @@ module.exports = function (app, pool) {
     requireRole(pool, "provider"),
     async (req, res) => {
       const conn = await pool.promise().getConnection();
+
       try {
         const {
           provider_id,
@@ -142,12 +151,15 @@ module.exports = function (app, pool) {
           zip,
           hours,
           category_ids,
-          phone,
-          website,
-          languages,
-          social_media_links,
+          image_url,
           description,
           eligibility_requirements,
+          contact_name,
+          contact_email,
+          contact_phone,
+          languages_spoken,
+          accessibility,
+          social_media_links,
         } = req.body;
 
         if (
@@ -159,8 +171,7 @@ module.exports = function (app, pool) {
           !zip ||
           !hours ||
           !category_ids ||
-          category_ids.length === 0 ||
-          !phone
+          category_ids.length === 0
         ) {
           conn.release();
           return res.status(400).json({ error: "Missing required fields." });
@@ -168,7 +179,7 @@ module.exports = function (app, pool) {
 
         await conn.beginTransaction();
 
-        // Geocode the address to get lat/lng
+        // Geocode address for lat/lng
         const coords = await geocodeAddress({
           street: street_address,
           city,
@@ -176,22 +187,24 @@ module.exports = function (app, pool) {
           zip,
         });
 
-        // Check if a Location with this lat/lng already exists
+        // Reuse existing location if same coordinates exist
         let locationId;
         if (coords?.lat != null && coords?.lng != null) {
           const [existing] = await conn.query(
             `SELECT location_id FROM Location WHERE latitude = ? AND longitude = ?`,
             [coords.lat, coords.lng],
           );
+
           if (existing.length > 0) {
             locationId = existing[0].location_id;
           }
         }
 
-        // Create a new Location if no match was found
+        // Insert new location if needed
         if (!locationId) {
           const [locResult] = await conn.query(
-            `INSERT INTO Location (street_address_1, city, state, zip, latitude, longitude) VALUES (?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO Location (street_address_1, city, state, zip, latitude, longitude)
+           VALUES (?, ?, ?, ?, ?, ?)`,
             [
               street_address,
               city,
@@ -204,11 +217,27 @@ module.exports = function (app, pool) {
           locationId = locResult.insertId;
         }
 
-        // Create Resource (uses first category_id)
+        // Use first category_id for now
         const categoryId = category_ids[0];
+
         const [resourceResult] = await conn.query(
-          `INSERT INTO Resource (provider_id, category_id, location_id, name, description, hours, eligibility_requirements, phone, website, languages, social_media_links)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO Resource (
+          provider_id,
+          category_id,
+          location_id,
+          name,
+          description,
+          hours,
+          image_url,
+          eligibility_requirements,
+          contact_name,
+          contact_email,
+          contact_phone,
+          languages_spoken,
+          accessibility,
+          social_media_links
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             provider_id,
             categoryId,
@@ -216,10 +245,13 @@ module.exports = function (app, pool) {
             name,
             description || null,
             hours,
+            image_url || null,
             eligibility_requirements || null,
-            phone,
-            website || null,
-            languages || null,
+            contact_name || null,
+            contact_email || null,
+            contact_phone || null,
+            languages_spoken || null,
+            accessibility || null,
             social_media_links || null,
           ],
         );
@@ -264,11 +296,30 @@ module.exports = function (app, pool) {
           hours,
           image_url,
           eligibility_requirements,
+          contact_name,
+          contact_email,
+          contact_phone,
+          languages_spoken,
+          accessibility,
+          social_media_links,
         } = req.body;
 
         const query = `
         UPDATE Resource
-        SET category_id = ?, location_id = ?, name = ?, description = ?, hours = ?, image_url = ?, eligibility_requirements = ?
+        SET
+          category_id = ?,
+          location_id = ?,
+          name = ?,
+          description = ?,
+          hours = ?,
+          image_url = ?,
+          eligibility_requirements = ?,
+          contact_name = ?,
+          contact_email = ?,
+          contact_phone = ?,
+          languages_spoken = ?,
+          accessibility = ?,
+          social_media_links = ?
         WHERE resource_id = ?
       `;
 
@@ -282,6 +333,12 @@ module.exports = function (app, pool) {
             hours || null,
             image_url || null,
             eligibility_requirements || null,
+            contact_name || null,
+            contact_email || null,
+            contact_phone || null,
+            languages_spoken || null,
+            accessibility || null,
+            social_media_links || null,
             resourceId,
           ]);
 

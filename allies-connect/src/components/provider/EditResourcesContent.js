@@ -1,7 +1,11 @@
 import { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
 import "../../App.css";
-import { API_URL, useTableDataProcessing } from "./providerHelpers";
+import {
+  API_URL,
+  formatHours,
+  useTableDataProcessing,
+} from "./providerHelpers";
 
 function EditResourcesContent({ onViewDetails, providerId }) {
   const [resources, setResources] = useState([]);
@@ -83,7 +87,9 @@ function EditResourcesContent({ onViewDetails, providerId }) {
                 <td>
                   {resource.city}, {resource.state}
                 </td>
-                <td>{resource.hours}</td>
+                <td style={{ whiteSpace: "pre-line" }}>
+                  {formatHours(resource.hours)}
+                </td>
                 <td>
                   <button
                     className="outline-warning me-2"
