@@ -1,5 +1,6 @@
 const { logEmail } = require("../utils/logging");
 const { geocodeAddress } = require("../utils/geocode");
+const { rateLimit } = require("../middleware/rateLimit");
 
 module.exports = function (app, pool) {
   // GET /api/events
@@ -131,7 +132,7 @@ module.exports = function (app, pool) {
 
   // POST /api/events
   // Body: { title, provider_id, street_address, city, state, zip, event_date, start_datetime, end_datetime, description, category_ids, shifts }
-  app.post("/api/events", async (req, res) => {
+  app.post("/api/events", rateLimit(), async (req, res) => {
     const conn = await pool.promise().getConnection();
     try {
       const {
@@ -145,8 +146,11 @@ module.exports = function (app, pool) {
         start_datetime,
         end_datetime,
         description,
+        capacity,
         category_ids,
         shifts,
+        latitude,
+        longitude,
       } = req.body;
 
       if (
@@ -164,15 +168,33 @@ module.exports = function (app, pool) {
         return res.status(400).json({ error: "Missing required fields." });
       }
 
+      // Reject events scheduled in the past
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const eventDate = new Date(event_date || start_datetime);
+      eventDate.setHours(0, 0, 0, 0);
+      if (eventDate < today) {
+        conn.release();
+        return res
+          .status(400)
+          .json({ error: "Event date cannot be in the past." });
+      }
+
       await conn.beginTransaction();
 
-      // Geocode the address to get lat/lng
-      const coords = await geocodeAddress({
-        street: street_address,
-        city,
-        state,
-        zip,
-      });
+      // Use frontend-provided coordinates if available, otherwise fall back
+      // to server-side geocoding
+      let coords = null;
+      if (latitude != null && longitude != null) {
+        coords = { lat: Number(latitude), lng: Number(longitude) };
+      } else {
+        coords = await geocodeAddress({
+          street: street_address,
+          city,
+          state,
+          zip,
+        });
+      }
 
       // Check if a Location with this lat/lng already exists
       let locationId;
@@ -205,8 +227,8 @@ module.exports = function (app, pool) {
       // Insert event (uses the first category_id)
       const categoryId = category_ids[0];
       const [eventResult] = await conn.query(
-        `INSERT INTO Event (provider_id, category_id, location_id, title, event_date, start_datetime, end_datetime, description)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO Event (provider_id, category_id, location_id, title, event_date, start_datetime, end_datetime, description, capacity)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           provider_id,
           categoryId,
@@ -216,6 +238,7 @@ module.exports = function (app, pool) {
           start_datetime,
           end_datetime,
           description || null,
+          capacity != null ? capacity : null,
         ],
       );
       const eventId = eventResult.insertId;
@@ -233,7 +256,12 @@ module.exports = function (app, pool) {
           await conn.query(
             `INSERT INTO VolunteerShift (opportunity_id, start_datetime, end_datetime, capacity)
              VALUES (?, ?, ?, ?)`,
-            [opportunityId, shift.start_time, shift.end_time, 0],
+            [
+              opportunityId,
+              shift.start_time,
+              shift.end_time,
+              shift.capacity != null ? shift.capacity : null,
+            ],
           );
         }
       }
@@ -253,7 +281,7 @@ module.exports = function (app, pool) {
 
   // PUT /api/events/:id
   // Updates event details
-  app.put("/api/events/:id", async (req, res) => {
+  app.put("/api/events/:id", rateLimit(), async (req, res) => {
     try {
       const eventId = req.params.id;
       const {
@@ -296,7 +324,7 @@ module.exports = function (app, pool) {
 
   // POST /api/events/:id/rsvp
   // Body: { userId, status }
-  app.post("/api/events/:id/rsvp", async (req, res) => {
+  app.post("/api/events/:id/rsvp", rateLimit(), async (req, res) => {
     try {
       const eventId = req.params.id;
       const { userId, status } = req.body;
@@ -329,6 +357,30 @@ module.exports = function (app, pool) {
     } catch (err) {
       console.error("Error recording RSVP:", err);
       res.status(500).json({ error: "Failed to record RSVP" });
+    }
+  });
+
+  // GET /api/events/:id/rsvp/:userId
+  // Check a user's RSVP status for an event
+  app.get("/api/events/:id/rsvp/:userId", async (req, res) => {
+    try {
+      const { id: eventId, userId } = req.params;
+
+      const [rows] = await pool
+        .promise()
+        .query(
+          "SELECT event_rsvp_id, status FROM EventRSVP WHERE event_id = ? AND user_id = ?",
+          [eventId, userId],
+        );
+
+      if (rows.length === 0) {
+        return res.json({ rsvp: null });
+      }
+
+      res.json({ rsvp: rows[0] });
+    } catch (err) {
+      console.error("Error fetching RSVP status:", err);
+      res.status(500).json({ error: "Failed to fetch RSVP status" });
     }
   });
 };

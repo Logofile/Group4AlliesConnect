@@ -1,15 +1,42 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import "../App.css";
 import ProviderModal from "../components/provider/ProviderModal";
+import { API_URL } from "../components/provider/providerHelpers";
 
 function Provider({ user, setUser, role, setRole }) {
   const [modalType, setModalType] = useState("");
+  const [providerName, setProviderName] = useState("");
+
+  useEffect(() => {
+    async function fetchProvider() {
+      try {
+        if (!user?.provider_id) return;
+        const resp = await fetch(
+          `${API_URL}/api/organizations/profile/${user.provider_id}`,
+        );
+        if (!resp.ok) return;
+        const data = await resp.json();
+        setProviderName(data?.name || "");
+      } catch (err) {
+        console.error("Error fetching provider profile:", err);
+      }
+    }
+
+    fetchProvider();
+  }, [user]);
 
   return (
     <Container className="provider-container">
       <div className="text-container mt-5 mb-5">
-        <h1>{user?.first_name || "Provider"} Dashboard</h1>
+        <h1>{providerName || "Provider"} Dashboard</h1>
+        <div style={{ textAlign: "center", marginTop: "0.5rem" }}>
+          <strong>
+            {user
+              ? `${user.first_name || ""} ${user.last_name || ""}`.trim()
+              : ""}
+          </strong>
+        </div>
       </div>
       <div className="mb-4">
         <h3 className="border-bottom pb-2 mb-3">Events</h3>

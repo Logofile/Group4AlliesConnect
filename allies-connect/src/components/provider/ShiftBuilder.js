@@ -28,6 +28,12 @@ function ShiftBuilder({ startTime, endTime, shifts, onShiftsChange }) {
     shifts.length > 0 &&
     shifts.some((s) => timeToMinutes(s.end) - timeToMinutes(s.start) > 30);
 
+  const handleCapacityChange = (index, value) => {
+    const newShifts = [...shifts];
+    newShifts[index] = { ...newShifts[index], capacity: value };
+    onShiftsChange(newShifts);
+  };
+
   const handleAddShift = () => {
     const newShifts = [...shifts];
 
@@ -60,10 +66,12 @@ function ShiftBuilder({ startTime, endTime, shifts, onShiftsChange }) {
       {
         start: shiftToSplit.start,
         end: midTime,
+        capacity: "",
       },
       {
         start: midTime,
         end: shiftToSplit.end,
+        capacity: "",
       },
     );
 
@@ -123,7 +131,7 @@ function ShiftBuilder({ startTime, endTime, shifts, onShiftsChange }) {
     return (
       <div className="mb-3">
         <label className="form-label">
-          <strong>Event Shifts</strong>
+          <strong>Volunteer Shifts</strong>
         </label>
         <div
           className="form-control text-muted"
@@ -142,7 +150,7 @@ function ShiftBuilder({ startTime, endTime, shifts, onShiftsChange }) {
   return (
     <div className="mb-3">
       <label className="form-label">
-        <strong>Event Shifts</strong>
+        <strong>Volunteer Shifts</strong>
       </label>
       {shifts.map((shift, i) => {
         const isLast = i === shifts.length - 1;
@@ -175,6 +183,16 @@ function ShiftBuilder({ startTime, endTime, shifts, onShiftsChange }) {
                 ))}
               </select>
             )}
+            <input
+              type="number"
+              className="form-control form-control-sm"
+              style={{ width: "80px" }}
+              placeholder="Cap."
+              min="0"
+              value={shift.capacity ?? ""}
+              onChange={(e) => handleCapacityChange(i, e.target.value)}
+              title="Volunteer capacity (leave empty for no limit)"
+            />
             {shifts.length > 1 && (
               <button
                 type="button"

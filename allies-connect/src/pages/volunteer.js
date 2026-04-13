@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import "../App.css";
-import VolunteerModal from "../components/VolunteerModal";
+import VolunteerModal from "../components/volunteer/VolunteerModal";
 
 function Volunteer({ user, setUser, role, setRole }) {
   const [modalType, setModalType] = useState("");
@@ -66,7 +66,7 @@ function Volunteer({ user, setUser, role, setRole }) {
               className="btn-white flex-grow-1"
               onClick={() => navigate("/events")}
             >
-              View Volunteer opportunities
+              View Volunteer Opportunities
             </button>
           </Col>
         </Row>
