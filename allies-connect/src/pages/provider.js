@@ -101,6 +101,19 @@ function Provider({ user, setUser, role, setRole }) {
           </Col>
         </Row>
       </div>
+      <div className="mb-4">
+        <h3 className="border-bottom pb-2 mb-3">Organization Accounts</h3>
+        <Row className="d-flex">
+          <Col md={5} className="d-flex mb-2">
+            <button
+              className="btn-gold flex-grow-1"
+              onClick={() => setModalType("sendInvite")}
+            >
+              Send Invite
+            </button>
+          </Col>
+        </Row>
+      </div>
       <ProviderModal
         show={!!modalType}
         type={modalType}

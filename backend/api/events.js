@@ -25,6 +25,7 @@ module.exports = function (app, pool) {
           e.special_instructions,
           e.image_url,
           e.flyer_url,
+          e.attendance,
           e.created_at,
           s.name AS provider_name,
           c.name AS category_name,
@@ -96,6 +97,7 @@ module.exports = function (app, pool) {
           e.special_instructions,
           e.image_url,
           e.flyer_url,
+          e.attendance,
           e.created_at,
           s.name AS provider_name,
           s.website AS provider_website,
@@ -149,6 +151,8 @@ module.exports = function (app, pool) {
         capacity,
         category_ids,
         shifts,
+        image_url,
+        flyer_url,
         latitude,
         longitude,
       } = req.body;
@@ -227,8 +231,8 @@ module.exports = function (app, pool) {
       // Insert event (uses the first category_id)
       const categoryId = category_ids[0];
       const [eventResult] = await conn.query(
-        `INSERT INTO Event (provider_id, category_id, location_id, title, event_date, start_datetime, end_datetime, description, capacity)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO Event (provider_id, category_id, location_id, title, event_date, start_datetime, end_datetime, description, capacity, image_url, flyer_url)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           provider_id,
           categoryId,
@@ -239,6 +243,8 @@ module.exports = function (app, pool) {
           end_datetime,
           description || null,
           capacity != null ? capacity : null,
+          image_url || null,
+          flyer_url || null,
         ],
       );
       const eventId = eventResult.insertId;
@@ -292,6 +298,8 @@ module.exports = function (app, pool) {
         special_instructions,
         start_datetime,
         end_datetime,
+        image_url,
+        flyer_url,
       } = req.body;
 
       if (!title) {
@@ -301,7 +309,8 @@ module.exports = function (app, pool) {
       await pool.promise().query(
         `UPDATE Event
          SET title = ?, description = ?, capacity = ?, registration_required = ?,
-             special_instructions = ?, start_datetime = ?, end_datetime = ?
+             special_instructions = ?, start_datetime = ?, end_datetime = ?,
+             image_url = ?, flyer_url = ?
          WHERE event_id = ?`,
         [
           title,
@@ -311,6 +320,8 @@ module.exports = function (app, pool) {
           special_instructions || null,
           start_datetime || null,
           end_datetime || null,
+          image_url || null,
+          flyer_url || null,
           eventId,
         ],
       );
@@ -348,6 +359,14 @@ module.exports = function (app, pool) {
       `;
 
       await pool.promise().query(query, [eventId, userId, status]);
+
+      // Recalculate attendance count from all "yes" RSVPs
+      await pool.promise().query(
+        `UPDATE Event SET attendance = (
+           SELECT COUNT(*) FROM EventRSVP WHERE event_id = ? AND status = 'yes'
+         ) WHERE event_id = ?`,
+        [eventId, eventId],
+      );
 
       await logEmail(pool, userId, eventId, "event_confirmation", "sent");
 

@@ -19,6 +19,7 @@ function CreateResourceContent({ onViewDetails, providerId, userId }) {
     social_media_links: [],
     description: "",
     eligibility_requirements: "",
+    image_url: "",
     latitude: null,
     longitude: null,
   });
@@ -160,6 +161,7 @@ function CreateResourceContent({ onViewDetails, providerId, userId }) {
           : null,
       description: formData.description || null,
       eligibility_requirements: formData.eligibility_requirements || null,
+      image_url: formData.image_url || null,
       latitude: formData.latitude,
       longitude: formData.longitude,
     };
@@ -193,6 +195,7 @@ function CreateResourceContent({ onViewDetails, providerId, userId }) {
         social_media_links: [],
         description: "",
         eligibility_requirements: "",
+        image_url: "",
         latitude: null,
         longitude: null,
       });
@@ -423,6 +426,21 @@ function CreateResourceContent({ onViewDetails, providerId, userId }) {
           onChange={(val) =>
             setFormData((prev) => ({ ...prev, social_media_links: val }))
           }
+        />
+      </div>
+
+      {/* Image URL */}
+      <div className="mb-3">
+        <label className="form-label">
+          <strong>Image URL</strong>
+        </label>
+        <input
+          type="url"
+          className="form-control"
+          name="image_url"
+          placeholder="https://example.com/image.jpg"
+          value={formData.image_url}
+          onChange={handleChange}
         />
       </div>
 

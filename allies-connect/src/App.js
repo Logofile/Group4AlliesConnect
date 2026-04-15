@@ -9,6 +9,7 @@ import Admin from "./pages/adminPage";
 import Events from "./pages/events";
 import ForgotPassword from "./pages/forgotPassword";
 import Home from "./pages/home";
+import InviteRegister from "./pages/inviteRegister";
 import Login from "./pages/login";
 import Maps from "./pages/maps";
 import Provider from "./pages/provider";
@@ -43,6 +44,7 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
+          <Route path="/invite/:token" element={<InviteRegister />} />
           <Route
             path="/provider"
             element={

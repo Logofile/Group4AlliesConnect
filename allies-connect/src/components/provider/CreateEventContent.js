@@ -20,8 +20,8 @@ function CreateEventContent({ onViewDetails, providerId }) {
     end_time: "",
     description: "",
     capacity: "",
-    image: null,
-    flyer: null,
+    image_url: "",
+    flyer_url: "",
     latitude: null,
     longitude: null,
   });
@@ -99,11 +99,6 @@ function CreateEventContent({ onViewDetails, providerId }) {
       }
       return updated;
     });
-  };
-
-  const handleFileChange = (e) => {
-    const { name, files } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: files[0] || null }));
   };
 
   // Called when the user selects a Places Autocomplete suggestion
@@ -201,6 +196,8 @@ function CreateEventContent({ onViewDetails, providerId }) {
           : null,
       category_ids: selectedCategories.map((c) => c.category_id),
       shifts: eventShifts,
+      image_url: formData.image_url || null,
+      flyer_url: formData.flyer_url || null,
       latitude: formData.latitude,
       longitude: formData.longitude,
     };
@@ -232,8 +229,8 @@ function CreateEventContent({ onViewDetails, providerId }) {
         end_time: "",
         description: "",
         capacity: "",
-        image: null,
-        flyer: null,
+        image_url: "",
+        flyer_url: "",
         latitude: null,
         longitude: null,
       });
@@ -435,26 +432,28 @@ function CreateEventContent({ onViewDetails, providerId }) {
       </div>
       <div className="mb-3">
         <label className="form-label">
-          <strong>Event Image</strong>
+          <strong>Event Image URL</strong>
         </label>
         <input
-          type="file"
+          type="url"
           className="form-control"
-          name="image"
-          accept="image/*"
-          onChange={handleFileChange}
+          name="image_url"
+          placeholder="https://example.com/image.jpg"
+          value={formData.image_url}
+          onChange={handleChange}
         />
       </div>
       <div className="mb-3">
         <label className="form-label">
-          <strong>Event Flyer</strong>
+          <strong>Event Flyer URL</strong>
         </label>
         <input
-          type="file"
+          type="url"
           className="form-control"
-          name="flyer"
-          accept="image/*,.pdf"
-          onChange={handleFileChange}
+          name="flyer_url"
+          placeholder="https://example.com/flyer.pdf"
+          value={formData.flyer_url}
+          onChange={handleChange}
         />
       </div>
       <button type="submit" className="btn-gold">
