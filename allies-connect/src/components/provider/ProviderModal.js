@@ -7,6 +7,7 @@ import EditEventsContent from "./EditEventsContent";
 import EditResourcesContent from "./EditResourcesContent";
 import ExportHoursContent from "./ExportHoursContent";
 import ProviderDetailsModal from "./ProviderDetailsModal";
+import SendInviteContent from "./SendInviteContent";
 import VolunteerShiftsContent from "./VolunteerShiftsContent";
 
 const MODAL_TYPE = {
@@ -34,6 +35,10 @@ const MODAL_TYPE = {
     title: "Export Volunteer Hours",
     Content: ExportHoursContent,
   },
+  sendInvite: {
+    title: "Send Organization Invite",
+    Content: SendInviteContent,
+  },
 };
 
 function ProviderModal({ show, onHide, type, providerId, userId }) {
@@ -58,7 +63,7 @@ function ProviderModal({ show, onHide, type, providerId, userId }) {
   };
 
   const modalClass =
-    type === "createEvent" || type === "createResource"
+    type === "createEvent" || type === "createResource" || type === "sendInvite"
       ? "modal-half"
       : "modal-wide";
 

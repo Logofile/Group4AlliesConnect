@@ -57,6 +57,8 @@ function EditEventDetailsContent({ data, onHide }) {
     capacity: "",
     registration_required: "unknown",
     special_instructions: "",
+    image_url: "",
+    flyer_url: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -118,6 +120,8 @@ function EditEventDetailsContent({ data, onHide }) {
         capacity: data.capacity || "",
         registration_required: data.registration_required || "unknown",
         special_instructions: data.special_instructions || "",
+        image_url: data.image_url || "",
+        flyer_url: data.flyer_url || "",
       });
       fetchShifts();
     }
@@ -161,6 +165,8 @@ function EditEventDetailsContent({ data, onHide }) {
           ? formData.end_datetime.replace("T", " ") + ":00"
           : null,
         capacity: formData.capacity ? Number(formData.capacity) : null,
+        image_url: formData.image_url || null,
+        flyer_url: formData.flyer_url || null,
       };
       const response = await fetch(`${API_URL}/api/events/${data.event_id}`, {
         method: "PUT",
@@ -413,6 +419,32 @@ function EditEventDetailsContent({ data, onHide }) {
           name="special_instructions"
           rows="2"
           value={formData.special_instructions}
+          onChange={handleChange}
+        />
+      </div>
+      <div className="mb-3">
+        <label className="form-label">
+          <strong>Image URL</strong>
+        </label>
+        <input
+          type="url"
+          className="form-control"
+          name="image_url"
+          placeholder="https://example.com/image.jpg"
+          value={formData.image_url}
+          onChange={handleChange}
+        />
+      </div>
+      <div className="mb-3">
+        <label className="form-label">
+          <strong>Flyer URL</strong>
+        </label>
+        <input
+          type="url"
+          className="form-control"
+          name="flyer_url"
+          placeholder="https://example.com/flyer.pdf"
+          value={formData.flyer_url}
           onChange={handleChange}
         />
       </div>
@@ -682,6 +714,7 @@ function EditResourceDetailsContent({ data, onHide, userId }) {
     name: "",
     description: "",
     eligibility_requirements: "",
+    image_url: "",
   });
   const [hours, setHours] = useState(() => {
     const init = {};
@@ -702,6 +735,7 @@ function EditResourceDetailsContent({ data, onHide, userId }) {
         name: data.name || "",
         description: data.description || "",
         eligibility_requirements: data.eligibility_requirements || "",
+        image_url: data.image_url || "",
       });
       // Parse existing hours if they are JSON-structured
       if (data.hours) {
@@ -757,7 +791,7 @@ function EditResourceDetailsContent({ data, onHide, userId }) {
         name: formData.name,
         description: formData.description || null,
         hours: JSON.stringify(hours),
-        image_url: data.image_url || null,
+        image_url: formData.image_url || null,
         eligibility_requirements: formData.eligibility_requirements || null,
       };
       const response = await fetch(
@@ -917,6 +951,19 @@ function EditResourceDetailsContent({ data, onHide, userId }) {
           name="eligibility_requirements"
           rows="2"
           value={formData.eligibility_requirements}
+          onChange={handleChange}
+        />
+      </div>
+      <div className="mb-3">
+        <label className="form-label">
+          <strong>Image URL</strong>
+        </label>
+        <input
+          type="url"
+          className="form-control"
+          name="image_url"
+          placeholder="https://example.com/image.jpg"
+          value={formData.image_url}
           onChange={handleChange}
         />
       </div>

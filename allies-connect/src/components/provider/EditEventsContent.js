@@ -76,13 +76,25 @@ function EditEventsContent({ onViewDetails, providerId }) {
             >
               Location {sortSymbol("city")}
             </th>
+            <th
+              style={{ cursor: "pointer" }}
+              onClick={() => handleSort("attendance")}
+            >
+              Attendance {sortSymbol("attendance")}
+            </th>
+            <th
+              style={{ cursor: "pointer" }}
+              onClick={() => handleSort("capacity")}
+            >
+              Capacity {sortSymbol("capacity")}
+            </th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody>
           {sortedData.length === 0 ? (
             <tr>
-              <td colSpan="5" className="text-muted">
+              <td colSpan="7" className="text-muted">
                 No events found.
               </td>
             </tr>
@@ -95,6 +107,8 @@ function EditEventsContent({ onViewDetails, providerId }) {
                 <td>
                   {event.city}, {event.state}
                 </td>
+                <td>{event.attendance ?? 0}</td>
+                <td>{event.capacity ?? "—"}</td>
                 <td>
                   <button
                     className="outline-warning me-2"

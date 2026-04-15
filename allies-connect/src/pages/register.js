@@ -1,5 +1,15 @@
-import { useState } from "react";
-import { Button, Col, Container, Form, Row, Tab, Tabs } from "react-bootstrap";
+import { useCallback, useEffect, useState } from "react";
+import {
+  Alert,
+  Button,
+  Col,
+  Container,
+  Form,
+  Row,
+  Spinner,
+  Tab,
+  Tabs,
+} from "react-bootstrap";
 import "../App.css";
 
 function Register() {
@@ -92,32 +102,144 @@ function Register() {
     return digits.slice(0, 2) + "-" + digits.slice(2, 9);
   };
 
+  const formatPhone = (value) => {
+    // Remove non-digits
+    const digits = value.replace(/\D/g, "");
+    // Format to (XXX) XXX-XXXX pattern
+    if (digits.length <= 3) {
+      return digits;
+    } else if (digits.length <= 6) {
+      return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+    } else if (digits.length <= 10) {
+      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+  };
+
+  const formatZip = (value) => {
+    // Remove non-digits and limit to 5
+    const digits = value.replace(/\D/g, "");
+    return digits.slice(0, 5);
+  };
+
+  // EIN verification state
+  const [einVerified, setEinVerified] = useState(false);
+  const [einOrgData, setEinOrgData] = useState(null);
+  const [einLoading, setEinLoading] = useState(false);
+  const [einError, setEinError] = useState("");
+
+  // Verify EIN against ProPublica when fully entered
+  const verifyEIN = useCallback(async (ein) => {
+    const digits = ein.replace(/\D/g, "");
+    if (digits.length !== 9) return;
+
+    setEinLoading(true);
+    setEinError("");
+    setEinOrgData(null);
+    setEinVerified(false);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/organizations/verify-ein/${digits}`,
+      );
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          setEinError(
+            "No organization found with that EIN. Please check the number and try again.",
+          );
+        } else {
+          setEinError(
+            "Unable to verify EIN at this time. Please try again later.",
+          );
+        }
+        return;
+      }
+
+      const data = await response.json();
+      setEinOrgData(data);
+    } catch (err) {
+      console.error("Error verifying EIN:", err);
+      setEinError("Unable to verify EIN at this time. Please try again later.");
+    } finally {
+      setEinLoading(false);
+    }
+  }, []);
+
+  // Trigger EIN verification when the EIN field reaches 9 digits
+  useEffect(() => {
+    const digits = orgFormData.ein.replace(/\D/g, "");
+    if (digits.length === 9 && isValidEINFormat(orgFormData.ein)) {
+      verifyEIN(orgFormData.ein);
+    } else {
+      // Reset verification state if EIN changes
+      setEinVerified(false);
+      setEinOrgData(null);
+      setEinError("");
+    }
+  }, [orgFormData.ein, verifyEIN]);
+
   // Handle volunteer form changes
   const handleVolChange = (e) => {
     const { name, value } = e.target;
-    setVolFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    if (name === "phone") {
+      setVolFormData((prev) => ({ ...prev, [name]: formatPhone(value) }));
+    } else if (name === "zip") {
+      setVolFormData((prev) => ({ ...prev, [name]: formatZip(value) }));
+    } else {
+      setVolFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   // Handle organization form changes
   const handleOrgChange = (e) => {
     const { name, value } = e.target;
-    // Auto-format EIN as user types
+    // Auto-format EIN, phone, and zip as user types
     if (name === "ein") {
-      const formattedEIN = formatEIN(value);
-      setOrgFormData((prev) => ({
-        ...prev,
-        [name]: formattedEIN,
-      }));
+      setOrgFormData((prev) => ({ ...prev, [name]: formatEIN(value) }));
+    } else if (name === "phone") {
+      setOrgFormData((prev) => ({ ...prev, [name]: formatPhone(value) }));
+    } else if (name === "zip") {
+      setOrgFormData((prev) => ({ ...prev, [name]: formatZip(value) }));
     } else {
-      setOrgFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
+      setOrgFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
+
+  // Computed form validity
+  const isVolFormValid =
+    volFormData.username &&
+    isValidUsernameFormat(volFormData.username) &&
+    volFormData.email &&
+    isValidEmailFormat(volFormData.email) &&
+    volFormData.password &&
+    isValidPasswordFormat(volFormData.password) &&
+    volFormData.confirmPassword &&
+    volFormData.password === volFormData.confirmPassword &&
+    volFormData.firstName &&
+    volFormData.lastName &&
+    volFormData.phone &&
+    isValidPhoneFormat(volFormData.phone) &&
+    volFormData.zip;
+
+  const isOrgFormValid =
+    orgFormData.username &&
+    isValidUsernameFormat(orgFormData.username) &&
+    orgFormData.email &&
+    isValidEmailFormat(orgFormData.email) &&
+    orgFormData.password &&
+    isValidPasswordFormat(orgFormData.password) &&
+    orgFormData.confirmPassword &&
+    orgFormData.password === orgFormData.confirmPassword &&
+    orgFormData.firstName &&
+    orgFormData.lastName &&
+    orgFormData.name &&
+    orgFormData.phone &&
+    isValidPhoneFormat(orgFormData.phone) &&
+    orgFormData.zip &&
+    orgFormData.ein &&
+    isValidEINFormat(orgFormData.ein) &&
+    einVerified;
 
   // Handle volunteer registration
   const handleVolunteerRegister = async (e) => {
@@ -267,6 +389,13 @@ function Register() {
       return;
     }
 
+    if (!einVerified) {
+      alert(
+        "Please verify your EIN and confirm your organization before registering.",
+      );
+      return;
+    }
+
     try {
       const response = await fetch(
         "http://localhost:5000/api/organizations/register",
@@ -311,6 +440,9 @@ function Register() {
         zip: "",
         ein: "",
       });
+      setEinVerified(false);
+      setEinOrgData(null);
+      setEinError("");
     } catch (err) {
       console.error("Error registering organization:", err);
       alert("An error occurred during registration");
@@ -482,10 +614,11 @@ function Register() {
                     <Form.Control
                       name="phone"
                       type="tel"
-                      placeholder="Enter phone number"
+                      placeholder="(XXX) XXX-XXXX"
                       value={volFormData.phone}
                       onChange={handleVolChange}
                       required
+                      maxLength="14"
                       isInvalid={
                         volFormData.phone &&
                         !isValidPhoneFormat(volFormData.phone)
@@ -507,17 +640,23 @@ function Register() {
                   <Form.Control
                     name="zip"
                     type="tel"
-                    placeholder="Enter ZIP code"
+                    placeholder="XXXXX"
                     value={volFormData.zip}
                     onChange={handleVolChange}
                     required
+                    maxLength="5"
                   />
                 </Col>
               </Row>
             </Form>
             <Row className="justify-content-end">
               <Col md={4}>
-                <Button className="btn-gold" onClick={handleVolunteerRegister}>
+                <Button
+                  className="btn-gold"
+                  onClick={handleVolunteerRegister}
+                  disabled={!isVolFormValid}
+                  style={{ opacity: isVolFormValid ? 1 : 0.5 }}
+                >
                   Register
                 </Button>
               </Col>
@@ -695,10 +834,11 @@ function Register() {
                     <Form.Control
                       name="phone"
                       type="tel"
-                      placeholder="Enter phone number"
+                      placeholder="(XXX) XXX-XXXX"
                       value={orgFormData.phone}
                       onChange={handleOrgChange}
                       required
+                      maxLength="14"
                       isInvalid={
                         orgFormData.phone &&
                         !isValidPhoneFormat(orgFormData.phone)
@@ -720,47 +860,128 @@ function Register() {
                   <Form.Control
                     name="zip"
                     type="tel"
-                    placeholder="Enter ZIP code"
+                    placeholder="XXXXX"
                     value={orgFormData.zip}
                     onChange={handleOrgChange}
                     required
+                    maxLength="5"
                   />
                 </Col>
               </Row>
-              <Row className="text-start mb-3">
-                <Col md={3} className="d-flex align-items-center">
-                  <h5>
-                    EIN Number: <span className="text-danger">*</span>
-                  </h5>
-                </Col>
-                <Col className="d-flex align-items-center">
-                  <Form.Group className="w-100">
-                    <Form.Control
-                      name="ein"
-                      type="tel"
-                      placeholder="Enter EIN number (9 digits)"
-                      value={orgFormData.ein}
-                      onChange={handleOrgChange}
-                      required
-                      isInvalid={
-                        orgFormData.ein &&
-                        hasNineDigits(orgFormData.ein) &&
-                        !isValidEINFormat(orgFormData.ein)
-                      }
-                      maxLength="11"
-                    />
-                    <Form.Control.Feedback type="invalid">
-                      EIN must be in the format XX-XXXXXXX (9 digits)
-                    </Form.Control.Feedback>
-                  </Form.Group>
-                </Col>
-              </Row>
+              <div
+                style={{
+                  border: "2px solid #ccc",
+                  borderRadius: "10px",
+                  padding: "20px",
+                  marginBottom: "1rem",
+                  backgroundColor: "#f9f9f9",
+                }}
+              >
+                <h5 className="text-center mb-3" style={{ fontWeight: "bold" }}>
+                  EIN Verification
+                </h5>
+                <Row className="text-start mb-3">
+                  <Col md={3} className="d-flex align-items-center">
+                    <h5>
+                      EIN Number: <span className="text-danger">*</span>
+                    </h5>
+                  </Col>
+                  <Col className="d-flex align-items-center">
+                    <Form.Group className="w-100">
+                      <Form.Control
+                        name="ein"
+                        type="tel"
+                        placeholder="Enter EIN number (XX-XXXXXXX)"
+                        value={orgFormData.ein}
+                        onChange={handleOrgChange}
+                        required
+                        isInvalid={
+                          orgFormData.ein &&
+                          hasNineDigits(orgFormData.ein) &&
+                          !isValidEINFormat(orgFormData.ein)
+                        }
+                        isValid={einVerified}
+                        maxLength="11"
+                      />
+                      <Form.Control.Feedback type="invalid">
+                        EIN must be in the format XX-XXXXXXX (9 digits)
+                      </Form.Control.Feedback>
+                      {einVerified && (
+                        <Form.Control.Feedback type="valid">
+                          EIN verified ✓
+                        </Form.Control.Feedback>
+                      )}
+                    </Form.Group>
+                  </Col>
+                </Row>
+
+                {einLoading && (
+                  <div className="text-center my-3">
+                    <Spinner animation="border" size="sm" className="me-2" />
+                    Verifying EIN...
+                  </div>
+                )}
+
+                {einError && (
+                  <Alert variant="danger" className="mt-2">
+                    {einError}
+                  </Alert>
+                )}
+
+                {einOrgData && !einVerified && (
+                  <Alert variant="info" className="mt-3">
+                    <h6 style={{ fontWeight: "bold" }}>
+                      Is this your organization?
+                    </h6>
+                    <p className="mb-1">
+                      <strong>Name:</strong> {einOrgData.name}
+                    </p>
+                    {einOrgData.address && (
+                      <p className="mb-1">
+                        <strong>Address:</strong> {einOrgData.address}
+                      </p>
+                    )}
+                    <p className="mb-3">
+                      <strong>Location:</strong> {einOrgData.city},{" "}
+                      {einOrgData.state} {einOrgData.zipcode}
+                    </p>
+                    <div className="d-flex gap-2">
+                      <Button
+                        variant="success"
+                        size="sm"
+                        onClick={() => setEinVerified(true)}
+                      >
+                        Yes, this is my organization
+                      </Button>
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={() => {
+                          setEinOrgData(null);
+                          setOrgFormData((prev) => ({ ...prev, ein: "" }));
+                        }}
+                      >
+                        No, try a different EIN
+                      </Button>
+                    </div>
+                  </Alert>
+                )}
+
+                {einVerified && einOrgData && (
+                  <Alert variant="success" className="mt-2">
+                    <strong>Verified:</strong> {einOrgData.name} —{" "}
+                    {einOrgData.city}, {einOrgData.state}
+                  </Alert>
+                )}
+              </div>
             </Form>
             <Row className="justify-content-end">
               <Col md={4}>
                 <Button
                   className="btn-gold"
                   onClick={handleOrganizationRegister}
+                  disabled={!isOrgFormValid}
+                  style={{ opacity: isOrgFormValid ? 1 : 0.5 }}
                 >
                   Register
                 </Button>

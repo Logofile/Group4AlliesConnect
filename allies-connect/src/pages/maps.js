@@ -11,6 +11,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Container, Form, Modal } from "react-bootstrap";
 import "../App.css";
 import MapPinDetails from "../components/MapPinDetails";
+import { formatHours } from "../components/provider/providerHelpers";
 
 const API_KEY = process.env.REACT_APP_MAP_API_KEY || "";
 const API_URL = process.env.REACT_APP_API_URL;
@@ -32,6 +33,17 @@ function calculateDistanceInMiles(lat1, lon1, lat2, lon2) {
       Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
+}
+
+// Generate visually distinct colors evenly distributed across the hue wheel
+function generateCategoryColors(categoryNames) {
+  const map = {};
+  const n = categoryNames.length;
+  categoryNames.forEach((name, i) => {
+    const hue = Math.round((i / n) * 360);
+    map[name] = `hsl(${hue}, 75%, 55%)`;
+  });
+  return map;
 }
 
 // Hook into the mapping library's context
@@ -70,6 +82,94 @@ function Maps() {
   });
 
   const distanceInputRef = useRef(null);
+  const addressInputRef = useRef(null);
+  const modalAutocompleteRef = useRef(null);
+
+  // Inject z-index fix so the Places dropdown appears above Bootstrap modals
+  useEffect(() => {
+    const styleId = "pac-container-zindex-fix";
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.textContent = ".pac-container { z-index: 1100 !important; }";
+      document.head.appendChild(style);
+    }
+  }, []);
+
+  // Attach Google Places Autocomplete to the modal address input
+  useEffect(() => {
+    if (!showAddressModal) {
+      if (modalAutocompleteRef.current) {
+        window.google?.maps?.event?.clearInstanceListeners(
+          modalAutocompleteRef.current,
+        );
+        modalAutocompleteRef.current = null;
+      }
+      return;
+    }
+
+    let cancelled = false;
+
+    const attach = async () => {
+      // Wait for Google Maps JS to be loaded by the APIProvider
+      const maxAttempts = 30;
+      for (let i = 0; i < maxAttempts && !window.google?.maps; i++) {
+        if (cancelled) return;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      if (cancelled || !window.google?.maps) return;
+
+      // Import the Places library if it hasn't been loaded yet
+      if (
+        !window.google.maps.places?.Autocomplete &&
+        window.google.maps.importLibrary
+      ) {
+        try {
+          await window.google.maps.importLibrary("places");
+        } catch {
+          return;
+        }
+      }
+      if (cancelled || !addressInputRef.current) return;
+
+      const PlacesAutocomplete = window.google.maps.places?.Autocomplete;
+      if (!PlacesAutocomplete) return;
+
+      const autocomplete = new PlacesAutocomplete(addressInputRef.current, {
+        componentRestrictions: { country: "us" },
+        fields: ["geometry", "formatted_address"],
+        types: ["geocode"],
+      });
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+        if (!place.geometry) return;
+
+        const lat = place.geometry.location.lat();
+        const lng = place.geometry.location.lng();
+        const address =
+          place.formatted_address || addressInputRef.current.value;
+
+        setAddressInput(address);
+        const newLocation = { lat, lng };
+        setUserLocation(newLocation);
+        localStorage.setItem("userSavedLocation", JSON.stringify(newLocation));
+        localStorage.setItem("userSavedAddress", address);
+        setGpsActive(false);
+        setAddressError("");
+        setShowAddressModal(false);
+      });
+
+      modalAutocompleteRef.current = autocomplete;
+    };
+
+    // Small delay so the modal input is mounted in the DOM first
+    const timer = setTimeout(attach, 150);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [showAddressModal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize distance filter from localStorage
   const [distanceInputVal, setDistanceInputVal] = useState(() => {
@@ -142,16 +242,31 @@ function Maps() {
     }
   };
 
-  // Fetch the pins when the page loads
+  // Fetch categories and pins when the page loads
   useEffect(() => {
     Promise.all([
+      axios.get(`${API_URL}/api/categories`),
       axios.get(`${API_URL}/api/events`),
       axios.get(`${API_URL}/api/resources`),
     ])
-      .then(([eventsResponse, resourcesResponse]) => {
-        const formatEvent = (event) => {
-          const pinColor = "yellow"; // All events use the yellow pin
+      .then(([categoriesResponse, eventsResponse, resourcesResponse]) => {
+        // Build category → color map with evenly distributed rainbow hues
+        const categories = categoriesResponse.data;
+        const colorMap = generateCategoryColors(categories.map((c) => c.name));
+        setCategoryColorMap(colorMap);
 
+        // Initialize all category filters to checked
+        const initialFilters = {};
+        categories.forEach((cat) => {
+          initialFilters[cat.name] = true;
+        });
+        setFilters(initialFilters);
+
+        const formatEvent = (event) => {
+          const eventDate = new Date(event.start_datetime).toLocaleDateString(
+            [],
+            { month: "long", day: "numeric", year: "numeric" },
+          );
           const startTime = new Date(event.start_datetime).toLocaleTimeString(
             [],
             { hour: "2-digit", minute: "2-digit" },
@@ -163,14 +278,16 @@ function Maps() {
 
           return {
             id: `event-${event.event_id}`,
-            name: `${event.title} (Event)`,
-            color: pinColor,
+            type: "Event",
+            name: event.title,
+            category: "Events",
+            color: colorMap["Events"] || "#999",
             position: {
               lat: parseFloat(event.latitude),
               lng: parseFloat(event.longitude),
             },
             address: `${event.street_address_1}, ${event.city}, ${event.state} ${event.zip}`,
-            hours: `${startTime} - ${endTime}`,
+            eventDateTime: `${eventDate}\n${startTime} - ${endTime}`,
             description: event.description || "No description provided.",
             image:
               event.image ||
@@ -179,22 +296,19 @@ function Maps() {
         };
 
         const formatResource = (resource) => {
-          let pinColor = "";
-          if (resource.category_name === "Food Assistance") pinColor = "green";
-          else if (resource.category_name === "Housing") pinColor = "blue";
-          else if (resource.category_name === "Legal") pinColor = "pink";
-
           return {
             id: `resource-${resource.resource_id}`,
             resource_id: resource.resource_id,
-            name: `${resource.name} (Resource)`,
-            color: pinColor,
+            type: "Resource",
+            name: resource.name,
+            category: resource.category_name,
+            color: colorMap[resource.category_name] || "#999",
             position: {
               lat: parseFloat(resource.latitude) - 0.0003, // Tiny offset to prevent overlapping
               lng: parseFloat(resource.longitude) + 0.0003,
             },
             address: `${resource.street_address_1}, ${resource.city}, ${resource.state} ${resource.zip}`,
-            hours: resource.hours || "Hours not specified",
+            hours: formatHours(resource.hours) || "Hours not specified",
             description: resource.description || "No description provided.",
             eligibility_requirements: resource.eligibility_requirements || null,
             image:
@@ -203,7 +317,14 @@ function Maps() {
           };
         };
 
-        const eventsPins = eventsResponse.data.map(formatEvent);
+        // Exclude events that have already ended (or already started if no end time)
+        const now = new Date();
+        const upcomingEvents = eventsResponse.data.filter(
+          (event) =>
+            new Date(event.end_datetime || event.start_datetime) >= now,
+        );
+
+        const eventsPins = upcomingEvents.map(formatEvent);
         const resourcesPins = resourcesResponse.data.map(formatResource);
         const allPins = [...eventsPins, ...resourcesPins];
 
@@ -255,13 +376,11 @@ function Maps() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // The filters for the types of pins to display
-  const [filters, setFilters] = useState({
-    yellow: true,
-    green: true,
-    blue: true,
-    pink: true,
-  });
+  // Dynamic category → color mapping (fetched from API)
+  const [categoryColorMap, setCategoryColorMap] = useState({});
+
+  // The filters for the types of pins to display (keyed by category name)
+  const [filters, setFilters] = useState({});
 
   // The pin that is currently selected
   const [selectedPin, setSelectedPin] = useState(null);
@@ -269,16 +388,16 @@ function Maps() {
   // Whether the filters panel is expanded
   const [filtersExpanded, setFiltersExpanded] = useState(true);
 
-  const handleFilterChange = (color) => {
+  const handleFilterChange = (category) => {
     setFilters((prev) => ({
       ...prev,
-      [color]: !prev[color],
+      [category]: !prev[category],
     }));
   };
 
   const filteredPins = mapPins.filter((pin) => {
-    // 1. Filter by color category
-    if (!filters[pin.color]) return false;
+    // 1. Filter by category
+    if (filters[pin.category] === false) return false;
 
     // 2. Filter by distance
     const distLimit = parseFloat(debouncedDistance);
@@ -303,20 +422,28 @@ function Maps() {
       <div
         style={{
           position: "absolute",
-          top: "20px",
-          left: "20px",
+          top: "10px",
+          left: "10px",
           backgroundColor: "white",
-          padding: "20px",
+          padding: "clamp(10px, 3vw, 20px)",
           borderRadius: "8px",
           boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
           zIndex: 1000,
-          minWidth: "200px",
+          width: "clamp(160px, 45vw, 260px)",
+          maxHeight: "calc(100vh - 120px)",
+          overflowY: "auto",
           transition: "all 0.3s ease",
         }}
       >
         {/* The filter panel */}
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <h5 className="mb-0" style={{ color: "var(--gold)" }}>
+        <div className="d-flex justify-content-between align-items-center mb-2">
+          <h5
+            className="mb-0"
+            style={{
+              color: "var(--gold)",
+              fontSize: "clamp(0.9rem, 3vw, 1.25rem)",
+            }}
+          >
             Filters
           </h5>
           <Button
@@ -331,96 +458,48 @@ function Maps() {
 
         {/* The filter options */}
         {filtersExpanded && (
-          <Form>
-            <div className="d-flex align-items-center mb-2">
-              <span
-                style={{
-                  display: "inline-block",
-                  width: "14px",
-                  height: "14px",
-                  backgroundColor: "#fff579",
-                  borderRadius: "50%",
-                  marginRight: "10px",
-                }}
-              ></span>
-              <Form.Check
-                type="checkbox"
-                label="Events"
-                checked={filters.yellow}
-                onChange={() => handleFilterChange("yellow")}
-                id="filter-yellow"
-                className="mb-0"
-              />
-            </div>
-            <div className="d-flex align-items-center mb-2">
-              <span
-                style={{
-                  display: "inline-block",
-                  width: "14px",
-                  height: "14px",
-                  backgroundColor: "#00e85f",
-                  borderRadius: "50%",
-                  marginRight: "10px",
-                }}
-              ></span>
-              <Form.Check
-                type="checkbox"
-                label="Food Assistance"
-                checked={filters.green}
-                onChange={() => handleFilterChange("green")}
-                id="filter-green"
-                className="mb-0"
-              />
-            </div>
-            <div className="d-flex align-items-center mb-2">
-              <span
-                style={{
-                  display: "inline-block",
-                  width: "14px",
-                  height: "14px",
-                  backgroundColor: "#5d94f8",
-                  borderRadius: "50%",
-                  marginRight: "10px",
-                }}
-              ></span>
-              <Form.Check
-                type="checkbox"
-                label="Housing"
-                checked={filters.blue}
-                onChange={() => handleFilterChange("blue")}
-                id="filter-blue"
-                className="mb-0"
-              />
-            </div>
-            <div className="d-flex align-items-center">
-              <span
-                style={{
-                  display: "inline-block",
-                  width: "14px",
-                  height: "14px",
-                  backgroundColor: "#e95daa",
-                  borderRadius: "50%",
-                  marginRight: "10px",
-                }}
-              ></span>
-              <Form.Check
-                type="checkbox"
-                label="Legal"
-                checked={filters.pink}
-                onChange={() => handleFilterChange("pink")}
-                id="filter-pink"
-                className="mb-0"
-              />
-            </div>
+          <Form style={{ fontSize: "clamp(0.75rem, 2.5vw, 1rem)" }}>
+            {Object.entries(categoryColorMap).map(([name, color]) => (
+              <div key={name} className="d-flex align-items-center mb-2">
+                <span
+                  style={{
+                    display: "inline-block",
+                    width: "clamp(10px, 3vw, 14px)",
+                    height: "clamp(10px, 3vw, 14px)",
+                    backgroundColor: color,
+                    borderRadius: "50%",
+                    marginRight: "10px",
+                  }}
+                ></span>
+                <Form.Check
+                  type="checkbox"
+                  label={name}
+                  checked={filters[name] !== false}
+                  onChange={() => handleFilterChange(name)}
+                  id={`filter-${name}`}
+                  className="mb-0"
+                />
+              </div>
+            ))}
             <div className="d-flex align-items-center mt-3">
-              <Form.Label className="mb-0 me-2" style={{ fontWeight: 500 }}>
+              <Form.Label
+                className="mb-0 me-2"
+                style={{
+                  fontWeight: 500,
+                  fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
+                }}
+              >
                 Distance
               </Form.Label>
               <Form.Control
                 type="number"
                 step="any"
                 min="1"
-                style={{ width: "80px", padding: "0.25rem 0.5rem" }}
+                style={{
+                  width: "clamp(55px, 15vw, 80px)",
+                  padding: "0.25rem 0.5rem",
+                  fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
+                }}
                 className="me-2 text-center"
                 value={distanceInputVal}
                 onChange={handleDistanceChange}
@@ -432,7 +511,14 @@ function Maps() {
                   }
                 }}
               />
-              <span style={{ fontWeight: 500 }}>miles</span>
+              <span
+                style={{
+                  fontWeight: 500,
+                  fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
+                }}
+              >
+                miles
+              </span>
             </div>
             {distanceErrorMsg && (
               <div className="text-danger mt-1" style={{ fontSize: "0.85rem" }}>
@@ -486,16 +572,22 @@ function Maps() {
                 Please provide an address, zip code, or city:
               </Form.Label>
               <Form.Control
+                ref={addressInputRef}
                 type="text"
                 placeholder="e.g. 123 Main St, Atlanta, GA"
                 value={addressInput}
                 onChange={(e) => setAddressInput(e.target.value)}
                 isInvalid={!!addressError}
                 autoFocus
+                autoComplete="off"
               />
               <Form.Control.Feedback type="invalid">
                 {addressError}
               </Form.Control.Feedback>
+              <small className="text-muted">
+                Start typing for suggestions, or enter any address and press
+                Center Map.
+              </small>
             </Form.Group>
           </Form>
         </Modal.Body>
@@ -535,28 +627,20 @@ function Maps() {
           mapId={process.env.REACT_APP_MAP_ID || "DEMO_MAP_ID"}
         >
           {/* The pins to display */}
-          {filteredPins.map((pin) => {
-            let hexColor = "";
-            if (pin.color === "yellow") hexColor = "#fff579";
-            else if (pin.color === "green") hexColor = "#00e85f";
-            else if (pin.color === "blue") hexColor = "#5d94f8";
-            else if (pin.color === "pink") hexColor = "#e95daa";
-
-            return (
-              <AdvancedMarker
-                key={pin.id}
-                position={pin.position}
-                title={pin.name}
-                onClick={() => setSelectedPin(pin)}
-              >
-                <Pin
-                  background={hexColor}
-                  borderColor={"#333"}
-                  glyphColor={"#333"}
-                />
-              </AdvancedMarker>
-            );
-          })}
+          {filteredPins.map((pin) => (
+            <AdvancedMarker
+              key={pin.id}
+              position={pin.position}
+              title={pin.name}
+              onClick={() => setSelectedPin(pin)}
+            >
+              <Pin
+                background={pin.color}
+                borderColor={"#333"}
+                glyphColor={"#333"}
+              />
+            </AdvancedMarker>
+          ))}
 
           {/* The info window to display when a pin is selected */}
           {selectedPin && (

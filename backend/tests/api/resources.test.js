@@ -1,41 +1,59 @@
-const request = require('supertest');
-const app = require('../../server');
-const mysql = require('mysql2');
+const request = require("supertest");
+const app = require("../../server");
+const mysql = require("mysql2");
 
 const mockPool = mysql._mockPool;
 const mockConnection = mysql._mockConnection;
 
-jest.mock('../../middleware/permissions', () => ({
+jest.mock("../../middleware/permissions", () => ({
   requireRole: (pool, role) => {
     return (req, res, next) => {
       req.currentUser = { user_id: 1, roles: [role] };
       next();
     };
-  }
+  },
 }));
 
-describe('Resources API Endpoints', () => {
+describe("Resources API Endpoints", () => {
+  const validHours = {
+    monday: { closed: false, open: "09:00", close: "17:00" },
+    tuesday: { closed: false, open: "09:00", close: "17:00" },
+    wednesday: { closed: false, open: "09:00", close: "17:00" },
+    thursday: { closed: false, open: "09:00", close: "17:00" },
+    friday: { closed: false, open: "09:00", close: "17:00" },
+    saturday: { closed: true, open: "", close: "" },
+    sunday: { closed: true, open: "", close: "" },
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
   // ── GET /api/resources ────────────────────────────────────────────
 
-  describe('GET /api/resources', () => {
-    it('should return a list of resources', async () => {
-      mockPool.promise().query.mockResolvedValueOnce([
-        [{ resource_id: 1, name: 'Food Bank', provider_name: 'Helping Hands' }]
-      ]);
+  describe("GET /api/resources", () => {
+    it("should return a list of resources", async () => {
+      mockPool
+        .promise()
+        .query.mockResolvedValueOnce([
+          [
+            {
+              resource_id: 1,
+              name: "Food Bank",
+              provider_name: "Helping Hands",
+            },
+          ],
+        ]);
 
-      const res = await request(app).get('/api/resources');
+      const res = await request(app).get("/api/resources");
       expect(res.statusCode).toEqual(200);
-      expect(res.body[0].name).toBe('Food Bank');
+      expect(res.body[0].name).toBe("Food Bank");
     });
 
-    it('should handle internal server errors', async () => {
-      mockPool.promise().query.mockRejectedValueOnce(new Error('DB Error'));
+    it("should handle internal server errors", async () => {
+      mockPool.promise().query.mockRejectedValueOnce(new Error("DB Error"));
 
-      const res = await request(app).get('/api/resources');
+      const res = await request(app).get("/api/resources");
       expect(res.statusCode).toEqual(500);
       expect(res.body.error).toMatch(/failed/i);
     });
@@ -43,21 +61,29 @@ describe('Resources API Endpoints', () => {
 
   // ── GET /api/resources/:id ────────────────────────────────────────
 
-  describe('GET /api/resources/:id', () => {
-    it('should return a specific resource by id', async () => {
-      mockPool.promise().query.mockResolvedValueOnce([
-        [{ resource_id: 1, name: 'Food Bank', provider_name: 'Helping Hands' }]
-      ]);
+  describe("GET /api/resources/:id", () => {
+    it("should return a specific resource by id", async () => {
+      mockPool
+        .promise()
+        .query.mockResolvedValueOnce([
+          [
+            {
+              resource_id: 1,
+              name: "Food Bank",
+              provider_name: "Helping Hands",
+            },
+          ],
+        ]);
 
-      const res = await request(app).get('/api/resources/1');
+      const res = await request(app).get("/api/resources/1");
       expect(res.statusCode).toEqual(200);
-      expect(res.body.name).toBe('Food Bank');
+      expect(res.body.name).toBe("Food Bank");
     });
 
-    it('should return 404 if resource not found', async () => {
+    it("should return 404 if resource not found", async () => {
       mockPool.promise().query.mockResolvedValueOnce([[]]);
 
-      const res = await request(app).get('/api/resources/999');
+      const res = await request(app).get("/api/resources/999");
       expect(res.statusCode).toEqual(404);
       expect(res.body.error).toMatch(/not found/i);
     });
@@ -65,8 +91,8 @@ describe('Resources API Endpoints', () => {
 
   // ── POST /api/resources ───────────────────────────────────────────
 
-  describe('POST /api/resources', () => {
-    it('should create a resource', async () => {
+  describe("POST /api/resources", () => {
+    it("should create a resource", async () => {
       // getConnection() → conn.beginTransaction, conn.query (geocode check), conn.query (insert location), conn.query (insert resource), conn.commit
       mockConnection.query
         // 1: Check existing location by lat/lng (none found)
@@ -77,18 +103,18 @@ describe('Resources API Endpoints', () => {
         .mockResolvedValueOnce([{ insertId: 2 }]);
 
       const res = await request(app)
-        .post('/api/resources')
-        .set('x-user-id', '1')
+        .post("/api/resources")
+        .set("x-user-id", "1")
         .send({
-          name: 'Shelter',
-          description: 'A place to stay',
+          name: "Shelter",
+          description: "A place to stay",
           provider_id: 1,
           category_ids: [2],
-          street_address: '123 Test St',
-          city: 'Test City',
-          state: 'GA',
-          zip: '30303',
-          hours: 'Mon-Fri 9-5'
+          street_address: "123 Test St",
+          city: "Test City",
+          state: "GA",
+          zip: "30303",
+          hours: validHours,
         });
 
       expect(res.statusCode).toEqual(201);
@@ -96,38 +122,107 @@ describe('Resources API Endpoints', () => {
       expect(res.body.resource_id).toBe(2);
     });
 
-    it('should return 400 if required fields are missing', async () => {
+    it("should return 400 if required fields are missing", async () => {
       const res = await request(app)
-        .post('/api/resources')
-        .set('x-user-id', '1')
+        .post("/api/resources")
+        .set("x-user-id", "1")
         .send({
-          name: 'Shelter'
+          name: "Shelter",
         });
 
       expect(res.statusCode).toEqual(400);
       expect(res.body.error).toMatch(/missing required/i);
     });
+
+    it("should return 400 if hours is an invalid plain string", async () => {
+      const res = await request(app)
+        .post("/api/resources")
+        .set("x-user-id", "1")
+        .send({
+          name: "Shelter",
+          description: "A place to stay",
+          provider_id: 1,
+          category_ids: [2],
+          street_address: "123 Test St",
+          city: "Test City",
+          state: "GA",
+          zip: "30303",
+          hours: "Mon-Fri 9-5",
+        });
+
+      expect(res.statusCode).toEqual(400);
+      expect(res.body.error).toMatch(/invalid hours/i);
+    });
+
+    it("should return 400 if hours is missing a day", async () => {
+      const incompleteHours = { ...validHours };
+      delete incompleteHours.sunday;
+
+      const res = await request(app)
+        .post("/api/resources")
+        .set("x-user-id", "1")
+        .send({
+          name: "Shelter",
+          description: "A place to stay",
+          provider_id: 1,
+          category_ids: [2],
+          street_address: "123 Test St",
+          city: "Test City",
+          state: "GA",
+          zip: "30303",
+          hours: incompleteHours,
+        });
+
+      expect(res.statusCode).toEqual(400);
+      expect(res.body.error).toMatch(/invalid hours/i);
+    });
+
+    it("should accept hours as a JSON string", async () => {
+      mockConnection.query
+        .mockResolvedValueOnce([[]])
+        .mockResolvedValueOnce([{ insertId: 1 }])
+        .mockResolvedValueOnce([{ insertId: 3 }]);
+
+      const res = await request(app)
+        .post("/api/resources")
+        .set("x-user-id", "1")
+        .send({
+          name: "Shelter 2",
+          description: "Another shelter",
+          provider_id: 1,
+          category_ids: [2],
+          street_address: "456 Test Ave",
+          city: "Test City",
+          state: "GA",
+          zip: "30303",
+          hours: JSON.stringify(validHours),
+        });
+
+      expect(res.statusCode).toEqual(201);
+      expect(res.body.message).toMatch(/success/i);
+    });
   });
 
   // ── PUT /api/resources/:id ────────────────────────────────────────
 
-  describe('PUT /api/resources/:id', () => {
-    it('should update a specific resource', async () => {
-      mockPool.promise().query
-        // 1: UPDATE query
+  describe("PUT /api/resources/:id", () => {
+    it("should update a specific resource", async () => {
+      mockPool
+        .promise()
+        .query// 1: UPDATE query
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         // 2: logAudit
         .mockResolvedValueOnce([{}]);
 
       const res = await request(app)
-        .put('/api/resources/1')
-        .set('x-user-id', '1')
+        .put("/api/resources/1")
+        .set("x-user-id", "1")
         .send({
           category_id: 1,
           location_id: 1,
-          name: 'Updated Food Bank',
-          description: 'Updated description',
-          hours: 'Mon-Sat 8-6'
+          name: "Updated Food Bank",
+          description: "Updated description",
+          hours: validHours,
         });
 
       expect(res.statusCode).toEqual(200);
@@ -137,17 +232,18 @@ describe('Resources API Endpoints', () => {
 
   // ── DELETE /api/resources/:id ─────────────────────────────────────
 
-  describe('DELETE /api/resources/:id', () => {
-    it('should delete a resource', async () => {
-      mockPool.promise().query
-        // 1: DELETE query
+  describe("DELETE /api/resources/:id", () => {
+    it("should delete a resource", async () => {
+      mockPool
+        .promise()
+        .query// 1: DELETE query
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         // 2: logAudit
         .mockResolvedValueOnce([{}]);
 
       const res = await request(app)
-        .delete('/api/resources/1')
-        .set('x-user-id', '1');
+        .delete("/api/resources/1")
+        .set("x-user-id", "1");
 
       expect(res.statusCode).toEqual(200);
       expect(res.body.message).toMatch(/deleted/i);
