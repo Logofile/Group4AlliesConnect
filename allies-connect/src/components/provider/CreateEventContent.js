@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "../../App.css";
+import AddressAutocomplete from "./AddressAutocomplete";
 import ShiftBuilder from "./ShiftBuilder";
 import { API_URL, TIME_OPTIONS } from "./providerHelpers";
 
@@ -18,10 +19,14 @@ function CreateEventContent({ onViewDetails, providerId }) {
     start_time: "",
     end_time: "",
     description: "",
+    capacity: "",
     image: null,
     flyer: null,
+    latitude: null,
+    longitude: null,
   });
   const [timeError, setTimeError] = useState("");
+  const [dateError, setDateError] = useState("");
   const [shifts, setShifts] = useState([]);
 
   // Reset shifts to a single shift whenever event start/end times change
@@ -31,7 +36,9 @@ function CreateEventContent({ onViewDetails, providerId }) {
       formData.end_time &&
       formData.end_time > formData.start_time
     ) {
-      setShifts([{ start: formData.start_time, end: formData.end_time }]);
+      setShifts([
+        { start: formData.start_time, end: formData.end_time, capacity: "" },
+      ]);
     } else {
       setShifts([]);
     }
@@ -82,6 +89,14 @@ function CreateEventContent({ onViewDetails, providerId }) {
           setTimeError("");
         }
       }
+      if (name === "event_date") {
+        const today = new Date().toISOString().split("T")[0];
+        if (value && value < today) {
+          setDateError("Event date cannot be in the past.");
+        } else {
+          setDateError("");
+        }
+      }
       return updated;
     });
   };
@@ -90,6 +105,19 @@ function CreateEventContent({ onViewDetails, providerId }) {
     const { name, files } = e.target;
     setFormData((prev) => ({ ...prev, [name]: files[0] || null }));
   };
+
+  // Called when the user selects a Places Autocomplete suggestion
+  const handleAddressSelect = useCallback((addressData) => {
+    setFormData((prev) => ({
+      ...prev,
+      street_address: addressData.street_address,
+      city: addressData.city,
+      state: addressData.state,
+      zip: addressData.zip,
+      latitude: addressData.latitude,
+      longitude: addressData.longitude,
+    }));
+  }, []);
 
   const handleAddCategory = (e) => {
     const categoryId = e.target.value;
@@ -132,6 +160,11 @@ function CreateEventContent({ onViewDetails, providerId }) {
       setTimeError("End time must be after start time.");
       return;
     }
+    const today = new Date().toISOString().split("T")[0];
+    if (formData.event_date < today) {
+      setDateError("Event date cannot be in the past.");
+      return;
+    }
     if (selectedCategories.length === 0) {
       alert("Please select at least one event type.");
       return;
@@ -145,6 +178,10 @@ function CreateEventContent({ onViewDetails, providerId }) {
       shift_number: index + 1,
       start_time: `${formData.event_date} ${shift.start}:00`,
       end_time: `${formData.event_date} ${shift.end}:00`,
+      capacity:
+        shift.capacity !== "" && shift.capacity != null
+          ? Number(shift.capacity)
+          : null,
     }));
 
     const payload = {
@@ -158,8 +195,14 @@ function CreateEventContent({ onViewDetails, providerId }) {
       start_datetime: startDatetime,
       end_datetime: endDatetime,
       description: formData.description,
+      capacity:
+        formData.capacity !== "" && formData.capacity != null
+          ? Number(formData.capacity)
+          : null,
       category_ids: selectedCategories.map((c) => c.category_id),
       shifts: eventShifts,
+      latitude: formData.latitude,
+      longitude: formData.longitude,
     };
 
     try {
@@ -188,8 +231,11 @@ function CreateEventContent({ onViewDetails, providerId }) {
         start_time: "",
         end_time: "",
         description: "",
+        capacity: "",
         image: null,
         flyer: null,
+        latitude: null,
+        longitude: null,
       });
       setSelectedCategories([]);
       setShifts([]);
@@ -223,81 +269,18 @@ function CreateEventContent({ onViewDetails, providerId }) {
             Event Sponsor <span className="text-danger">*</span>
           </strong>
         </label>
-        <input
-          type="text"
-          className="form-control"
-          value={provider?.name || "Loading..."}
-          readOnly
-        />
-      </div>
-      <div className="mb-3">
-        <label className="form-label">
-          <strong>
-            Street Address <span className="text-danger">*</span>
-          </strong>
-        </label>
-        <input
-          type="text"
-          className="form-control"
-          name="street_address"
-          placeholder="Enter street address"
-          value={formData.street_address}
-          onChange={handleChange}
-          required
-        />
-      </div>
-      <div className="row mb-3">
-        <div className="col-md-5">
-          <label className="form-label">
-            <strong>
-              City <span className="text-danger">*</span>
-            </strong>
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            name="city"
-            placeholder="City"
-            value={formData.city}
-            onChange={handleChange}
-            required
-          />
-        </div>
-        <div className="col-md-3">
-          <label className="form-label">
-            <strong>
-              State <span className="text-danger">*</span>
-            </strong>
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            name="state"
-            placeholder="State"
-            value={formData.state}
-            onChange={handleChange}
-            maxLength={2}
-            required
-          />
-        </div>
-        <div className="col-md-4">
-          <label className="form-label">
-            <strong>
-              Zip Code <span className="text-danger">*</span>
-            </strong>
-          </label>
-          <input
-            type="text"
-            className="form-control"
-            name="zip"
-            placeholder="Zip Code"
-            value={formData.zip}
-            onChange={handleChange}
-            maxLength={9}
-            required
-          />
+        <div
+          className="form-control-plaintext"
+          style={{ paddingTop: "0.375rem" }}
+        >
+          {provider?.name || "Loading..."}
         </div>
       </div>
+      <AddressAutocomplete
+        formData={formData}
+        onChange={handleChange}
+        onAddressSelect={handleAddressSelect}
+      />
       <div className="mb-3">
         <label className="form-label">
           <strong>
@@ -306,12 +289,16 @@ function CreateEventContent({ onViewDetails, providerId }) {
         </label>
         <input
           type="date"
-          className="form-control"
+          className={`form-control${dateError ? " is-invalid" : ""}`}
           name="event_date"
           value={formData.event_date}
           onChange={handleChange}
+          min={new Date().toISOString().split("T")[0]}
           required
         />
+        {dateError && (
+          <div className="invalid-feedback d-block">{dateError}</div>
+        )}
       </div>
       <div className="row mb-3">
         <div className="col-md-6">
@@ -418,6 +405,20 @@ function CreateEventContent({ onViewDetails, providerId }) {
               </option>
             ))}
         </select>
+      </div>
+      <div className="mb-3">
+        <label className="form-label">
+          <strong>Event Capacity</strong>
+        </label>
+        <input
+          type="number"
+          className="form-control"
+          name="capacity"
+          placeholder="Leave empty for no limit"
+          min="0"
+          value={formData.capacity}
+          onChange={handleChange}
+        />
       </div>
       <div className="mb-3">
         <label className="form-label">

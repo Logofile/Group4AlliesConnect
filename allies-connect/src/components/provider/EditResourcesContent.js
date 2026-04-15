@@ -1,11 +1,7 @@
 import { useEffect, useState } from "react";
 import { Table } from "react-bootstrap";
 import "../../App.css";
-import {
-  API_URL,
-  formatHours,
-  useTableDataProcessing,
-} from "./providerHelpers";
+import { API_URL, useTableDataProcessing } from "./providerHelpers";
 
 function EditResourcesContent({ onViewDetails, providerId }) {
   const [resources, setResources] = useState([]);
@@ -60,19 +56,13 @@ function EditResourcesContent({ onViewDetails, providerId }) {
             >
               Location {sortSymbol("city")}
             </th>
-            <th
-              style={{ cursor: "pointer" }}
-              onClick={() => handleSort("hours")}
-            >
-              Hours {sortSymbol("hours")}
-            </th>
             <th>Action</th>
           </tr>
         </thead>
         <tbody>
           {sortedData.length === 0 ? (
             <tr>
-              <td colSpan="5" className="text-muted">
+              <td colSpan="4" className="text-muted">
                 No resources found.
               </td>
             </tr>
@@ -86,9 +76,6 @@ function EditResourcesContent({ onViewDetails, providerId }) {
                 <td>{resource.category_name}</td>
                 <td>
                   {resource.city}, {resource.state}
-                </td>
-                <td style={{ whiteSpace: "pre-line" }}>
-                  {formatHours(resource.hours)}
                 </td>
                 <td>
                   <button

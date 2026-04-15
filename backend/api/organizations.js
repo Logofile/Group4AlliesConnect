@@ -1,6 +1,7 @@
 const bcrypt = require("bcrypt");
 const saltRounds = 10;
 const { requireRole } = require("../middleware/permissions");
+const { rateLimit } = require("../middleware/rateLimit");
 
 // Validate phone number format (10 digits)
 const isValidPhoneFormat = (phone) => {
@@ -40,147 +41,151 @@ const isValidEINFormat = (ein) => {
 module.exports = function (app, pool) {
   // POST /api/organizations/register
   // Creates a new user, provider, and provider claim
-  app.post("/api/organizations/register", async (req, res) => {
-    try {
-      const {
-        username,
-        email,
-        password,
-        organization_name,
-        phone_number,
-        first_name,
-        last_name,
-        zip_code,
-        ein,
-        verification_method,
-      } = req.body;
+  app.post(
+    "/api/organizations/register",
+    rateLimit({ windowMs: 60000, max: 5 }),
+    async (req, res) => {
+      try {
+        const {
+          username,
+          email,
+          password,
+          organization_name,
+          phone_number,
+          first_name,
+          last_name,
+          zip_code,
+          ein,
+          verification_method,
+        } = req.body;
 
-      if (
-        !username ||
-        !email ||
-        !password ||
-        !first_name ||
-        !last_name ||
-        !organization_name ||
-        !phone_number ||
-        !zip_code ||
-        !ein
-      ) {
-        return res.status(400).json({
-          error:
-            "username, email, password, first_name, last_name, organization_name, phone_number, zip_code, and ein are required",
-        });
-      }
+        if (
+          !username ||
+          !email ||
+          !password ||
+          !first_name ||
+          !last_name ||
+          !organization_name ||
+          !phone_number ||
+          !zip_code ||
+          !ein
+        ) {
+          return res.status(400).json({
+            error:
+              "username, email, password, first_name, last_name, organization_name, phone_number, zip_code, and ein are required",
+          });
+        }
 
-      // Validate formats
-      if (!isValidUsernameFormat(username)) {
-        return res.status(400).json({
-          error:
-            "Username must be 3-50 characters, contain only letters, numbers, underscores, and hyphens, with no spaces",
-        });
-      }
+        // Validate formats
+        if (!isValidUsernameFormat(username)) {
+          return res.status(400).json({
+            error:
+              "Username must be 3-50 characters, contain only letters, numbers, underscores, and hyphens, with no spaces",
+          });
+        }
 
-      if (!isValidEmailFormat(email)) {
-        return res.status(400).json({
-          error: "Invalid email format",
-        });
-      }
+        if (!isValidEmailFormat(email)) {
+          return res.status(400).json({
+            error: "Invalid email format",
+          });
+        }
 
-      if (!isValidPasswordFormat(password)) {
-        return res.status(400).json({
-          error:
-            "Password must be more than 6 characters, contain at least one capital letter, one special character (!@#$%^&*()_+-=[]{}|;:',./~`), and no spaces",
-        });
-      }
+        if (!isValidPasswordFormat(password)) {
+          return res.status(400).json({
+            error:
+              "Password must be more than 6 characters, contain at least one capital letter, one special character (!@#$%^&*()_+-=[]{}|;:',./~`), and no spaces",
+          });
+        }
 
-      if (phone_number && !isValidPhoneFormat(phone_number)) {
-        return res.status(400).json({
-          error: "Phone number must be 10 digits",
-        });
-      }
+        if (phone_number && !isValidPhoneFormat(phone_number)) {
+          return res.status(400).json({
+            error: "Phone number must be 10 digits",
+          });
+        }
 
-      if (!isValidEINFormat(ein)) {
-        return res.status(400).json({
-          error: "EIN must be in the format XX-XXXXXXX (9 digits)",
-        });
-      }
+        if (!isValidEINFormat(ein)) {
+          return res.status(400).json({
+            error: "EIN must be in the format XX-XXXXXXX (9 digits)",
+          });
+        }
 
-      const [existingEmails] = await pool
-        .promise()
-        .query("SELECT user_id FROM User WHERE email = ?", [email]);
+        const [existingEmails] = await pool
+          .promise()
+          .query("SELECT user_id FROM User WHERE email = ?", [email]);
 
-      if (existingEmails.length > 0) {
-        return res.status(400).json({
-          error: "An account with that email already exists",
-        });
-      }
+        if (existingEmails.length > 0) {
+          return res.status(400).json({
+            error: "An account with that email already exists",
+          });
+        }
 
-      const [existingUsernames] = await pool
-        .promise()
-        .query("SELECT user_id FROM User WHERE username = ?", [username]);
+        const [existingUsernames] = await pool
+          .promise()
+          .query("SELECT user_id FROM User WHERE username = ?", [username]);
 
-      if (existingUsernames.length > 0) {
-        return res.status(400).json({
-          error: "That username is already in use",
-        });
-      }
+        if (existingUsernames.length > 0) {
+          return res.status(400).json({
+            error: "That username is already in use",
+          });
+        }
 
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-      const [userResult] = await pool
-        .promise()
-        .query(
-          "INSERT INTO User (username, email, password_hash, status) VALUES (?, ?, ?, 'active')",
-          [username, email, hashedPassword],
-        );
+        const [userResult] = await pool
+          .promise()
+          .query(
+            "INSERT INTO User (username, email, password_hash, status) VALUES (?, ?, ?, 'active')",
+            [username, email, hashedPassword],
+          );
 
-      const userId = userResult.insertId;
+        const userId = userResult.insertId;
 
-      await pool
-        .promise()
-        .query(
-          "INSERT INTO UserProfile (user_id, first_name, last_name, phone, zip_code) VALUES (?, ?, ?, ?, ?)",
-          [userId, first_name, last_name, phone_number, zip_code],
-        );
+        await pool
+          .promise()
+          .query(
+            "INSERT INTO UserProfile (user_id, first_name, last_name, phone, zip_code) VALUES (?, ?, ?, ?, ?)",
+            [userId, first_name, last_name, phone_number, zip_code],
+          );
 
-      const [providerResult] = await pool.promise().query(
-        `INSERT INTO ServiceProvider (name, ein, phone_number, status)
+        const [providerResult] = await pool.promise().query(
+          `INSERT INTO ServiceProvider (name, ein, phone_number, status)
          VALUES (?, ?, ?, 'pending')`,
-        [organization_name, ein, phone_number],
-      );
+          [organization_name, ein, phone_number],
+        );
 
-      const providerId = providerResult.insertId;
+        const providerId = providerResult.insertId;
 
-      await pool.promise().query(
-        `INSERT INTO ServiceProviderClaim (provider_id, user_id, status, verification_method)
+        await pool.promise().query(
+          `INSERT INTO ServiceProviderClaim (provider_id, user_id, status, verification_method)
          VALUES (?, ?, 'pending', ?)`,
-        [providerId, userId, verification_method || "ein"],
-      );
-
-      await pool
-        .promise()
-        .query(
-          "INSERT INTO UserRole (user_id, role_id) SELECT ?, role_id FROM Role WHERE role_name = 'provider'",
-          [userId],
+          [providerId, userId, verification_method || "ein"],
         );
 
-      await pool
-        .promise()
-        .query(
-          "INSERT INTO ServiceProviderUser (provider_id, user_id) VALUES (?, ?)",
-          [providerId, userId],
-        );
+        await pool
+          .promise()
+          .query(
+            "INSERT INTO UserRole (user_id, role_id) SELECT ?, role_id FROM Role WHERE role_name = 'provider'",
+            [userId],
+          );
 
-      res.status(201).json({
-        message: "Organization registered successfully",
-        user_id: userId,
-        provider_id: providerId,
-      });
-    } catch (err) {
-      console.error("Error registering organization:", err);
-      res.status(500).json({ error: "Failed to register organization" });
-    }
-  });
+        await pool
+          .promise()
+          .query(
+            "INSERT INTO ServiceProviderUser (provider_id, user_id) VALUES (?, ?)",
+            [providerId, userId],
+          );
+
+        res.status(201).json({
+          message: "Organization registered successfully",
+          user_id: userId,
+          provider_id: providerId,
+        });
+      } catch (err) {
+        console.error("Error registering organization:", err);
+        res.status(500).json({ error: "Failed to register organization" });
+      }
+    },
+  );
 
   // GET /api/organizations/profile/:id
   // Returns organization profile details
@@ -231,6 +236,7 @@ module.exports = function (app, pool) {
   // Updates organization profile details
   app.put(
     "/api/organizations/profile/:id",
+    rateLimit(),
     requireRole(pool, "provider"),
     async (req, res) => {
       try {

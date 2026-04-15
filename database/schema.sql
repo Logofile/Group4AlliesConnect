@@ -1,6 +1,10 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- Drop tables
+DROP TABLE IF EXISTS PasswordResetToken;
+DROP TABLE IF EXISTS VolunteerUnavailableDate;
+DROP TABLE IF EXISTS VolunteerAvailability;
+DROP TABLE IF EXISTS VolunteerProviderConnection;
 DROP TABLE IF EXISTS ServiceArea;
 DROP TABLE IF EXISTS AuditLog;
 DROP TABLE IF EXISTS EmailLog;
@@ -327,5 +331,65 @@ CREATE TABLE ServiceArea (
   PRIMARY KEY (area_id),
   CONSTRAINT fk_servicearea_provider
     FOREIGN KEY (serviceprovider_id) REFERENCES ServiceProvider(provider_id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Volunteer ↔Resource Connections
+CREATE TABLE VolunteerResourceConnection (
+  connection_id INT NOT NULL AUTO_INCREMENT,
+  resource_id INT NOT NULL,
+  user_id INT NOT NULL,
+  date_changed TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  PRIMARY KEY (connection_id),
+  UNIQUE KEY uq_resource_user (resource_id, user_id),
+  CONSTRAINT fk_vpc_resource
+    FOREIGN KEY (resource_id) REFERENCES Resource(resource_id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_vpc_user
+    FOREIGN KEY (user_id) REFERENCES `User`(user_id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Volunteer Weekly Availability
+CREATE TABLE VolunteerAvailability (
+  availability_id INT NOT NULL AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  day_of_week ENUM('Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday') NOT NULL,
+  available BOOLEAN NOT NULL DEFAULT FALSE,
+  start_time TIME NULL,
+  end_time TIME NULL,
+  PRIMARY KEY (availability_id),
+  UNIQUE KEY uq_user_day (user_id, day_of_week),
+  CONSTRAINT fk_avail_user
+    FOREIGN KEY (user_id) REFERENCES `User`(user_id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Volunteer Specific Unavailable Dates
+CREATE TABLE VolunteerUnavailableDate (
+  unavailable_id INT NOT NULL AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  unavailable_date DATE NOT NULL,
+  reason VARCHAR(255) NULL,
+  PRIMARY KEY (unavailable_id),
+  UNIQUE KEY uq_user_date (user_id, unavailable_date),
+  CONSTRAINT fk_unavail_user
+    FOREIGN KEY (user_id) REFERENCES `User`(user_id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Password Reset Tokens
+CREATE TABLE PasswordResetToken (
+  token_id INT NOT NULL AUTO_INCREMENT,
+  user_id INT NOT NULL,
+  token VARCHAR(255) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (token_id),
+  UNIQUE KEY uq_reset_token (token(191)),
+  CONSTRAINT fk_resettoken_user
+    FOREIGN KEY (user_id) REFERENCES `User`(user_id)
     ON DELETE CASCADE ON UPDATE CASCADE
 );

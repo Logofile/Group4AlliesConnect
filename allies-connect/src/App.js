@@ -7,11 +7,13 @@ import AuthRoute from "./components/AuthRoute";
 import MyNavbar from "./components/navbar";
 import Admin from "./pages/adminPage";
 import Events from "./pages/events";
+import ForgotPassword from "./pages/forgotPassword";
 import Home from "./pages/home";
 import Login from "./pages/login";
 import Maps from "./pages/maps";
 import Provider from "./pages/provider";
 import Register from "./pages/register";
+import ResetPassword from "./pages/resetPassword";
 import Volunteer from "./pages/volunteer";
 
 function App() {
@@ -39,6 +41,8 @@ function App() {
           />
           <Route path="/events" element={<Events />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route
             path="/provider"
             element={
@@ -56,7 +60,12 @@ function App() {
             path="/volunteer"
             element={
               <AuthRoute user={user} role={role} requiredRole="volunteer">
-                <Volunteer />
+                <Volunteer
+                  user={user}
+                  setUser={setUser}
+                  role={role}
+                  setRole={setRole}
+                />
               </AuthRoute>
             }
           />
