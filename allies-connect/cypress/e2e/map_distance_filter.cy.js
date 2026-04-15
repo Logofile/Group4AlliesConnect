@@ -57,19 +57,24 @@ describe('Map Distance Filter Flow', () => {
     // Initially, wait for the map UI to render
     cy.wait(500);
 
-    // Click the Set My Location button (To trigger the address modal as specified by requirements)
-    cy.get('button').contains('Set my location', { matchCase: false }).click();
+    // Click the Set My Location button if the modal isn't already automatically opened by the desktop environment
+    cy.get('body').then($body => {
+      if ($body.find('.modal.show').length === 0) {
+        cy.get('button').contains('Set my location', { matchCase: false }).click();
+      }
+    });
 
-    // The address modal should pop up. User enters the address
-    cy.get('input[placeholder*="address" i], input[name*="address" i]').type('1105 West Peachtree, Atlanta GA');
-    cy.get('button').contains('Save', { matchCase: false }).click();
+    // The address modal should be visible. User enters the address
+    cy.get('input[placeholder*="Atlanta" i]').should('be.visible').type('1105 West Peachtree, Atlanta GA');
+    cy.get('button').contains('Center Map', { matchCase: false }).click();
 
     // Now, user applies the distance filter for 2 miles
     cy.get('input[type="number"]').clear().type('2');
 
     // After filtering is applied, we expect the map to only have 2 markers left 
     // The "Far Event" (15 miles out) should be dynamically stripped from the DOM or Google Maps cluster
-    cy.contains('Far Event').should('not.exist');
-    cy.contains('Close Event').should('exist');
+    // Note: Map pins don't render raw text to the DOM, they use 'title' attributes!
+    cy.get('[title="Far Event (Event)"]').should('not.exist');
+    cy.get('[title="Close Event (Event)"]').should('exist');
   });
 });
