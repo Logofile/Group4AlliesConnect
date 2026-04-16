@@ -33,10 +33,27 @@ describe('Volunteer Signup Flow', () => {
           city: "Atlanta",
           state: "GA",
           provider_name: "Test Organization",
-          description: "Help us clean up the local park!"
+          description: "Help us clean up the local park!",
+          street_address: "123 Park Ave",
+          zip: "30301"
         }
       ]
     }).as('getEvents');
+
+    // Intercept shifts for this event
+    cy.intercept('GET', '**/api/events/50/shifts', {
+      statusCode: 200,
+      body: [
+        {
+          shift_id: 101,
+          event_id: 50,
+          start_datetime: "2030-01-01T12:00:00Z",
+          end_datetime: "2030-01-01T14:00:00Z",
+          capacity: 10,
+          signup_count: 0
+        }
+      ]
+    }).as('getShifts');
 
     // Mock the backend volunteer-signups creation endpoint (Wait for the user to submit)
     cy.intercept('POST', '**/api/volunteer-signups', {
@@ -65,26 +82,36 @@ describe('Volunteer Signup Flow', () => {
     // We should be redirected to the volunteer dashboard automatically
     cy.url().should('include', '/volunteer');
 
-    // 3. Navigate to the Events page
-    cy.contains('Events').click(); // Click the navbar link
+    // 3. Click the header logo to go to the Home page
+    cy.get('.navbar-brand img[alt="Allies Connect logo"]').click();
+    cy.url().should('eq', Cypress.config().baseUrl + '/');
+
+    // 4. Click the "Events" button on the Home page
+    cy.contains('.btn-gold', 'Events').click();
     cy.url().should('include', '/events');
     cy.wait('@getEvents');
 
-    // 4. Find our mocked event on the page and click it to open the Event Details Modal
+    // 5. Find our mocked event on the page and click it to open the Event Details Modal
     cy.contains('Community Park Cleanup').should('be.visible').click();
 
-    // 5. Assert the modal opens and contains the "Volunteer" button
+    // 6. Assert the modal opens and contains the "Volunteer" button
     cy.get('.modal').should('be.visible');
     cy.get('.modal').contains('Test Organization');
     
-    // Test the TDD Signup Flow
+    // 7. Click the "Volunteer" button to open the Shift Selection Modal
     cy.get('.modal').contains('Volunteer').click();
+    cy.wait('@getShifts');
 
-    // 6. Assert the front-end successfully triggered a backend creation request for user 999
+    // 8. Select a shift and click "Sign Up" in the Shift Selection Modal
+    cy.get('.modal').contains('Select a Volunteer Shift').should('be.visible');
+    cy.get('.modal').contains('Sign Up').click();
+
+    // 9. Assert the front-end successfully triggered a backend creation request for user 999
     cy.wait('@signupRequest').its('request.body').should('have.property', 'user_id', 999);
 
-    // 7. Assert that the UI provides visual feedback of success to the user
-    // (This ensures the developer builds a success popup / alert during implementation!)
-    cy.contains('Successfully signed up', { matchCase: false }).should('be.visible');
+    // 10. Assert that the UI provides visual feedback of success to the user
+    cy.contains('Signed up successfully', { matchCase: false }).should('be.visible');
   });
+
 });
+

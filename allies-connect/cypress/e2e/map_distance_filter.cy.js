@@ -22,7 +22,7 @@ describe('Map Distance Filter Flow', () => {
           event_id: 2,
           title: "Far Event",
           // Marietta (approx 15 miles away)
-          latitude: "33.9526", 
+          latitude: "33.9526",
           longitude: "-84.5499",
           start_datetime: "2030-01-01T12:00:00Z",
           end_datetime: "2030-01-01T14:00:00Z"
