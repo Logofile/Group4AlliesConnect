@@ -12,6 +12,8 @@ import {
 } from "react-bootstrap";
 import "../App.css";
 
+const API_URL = process.env.REACT_APP_API_URL;
+
 function Register() {
   // Volunteer form state
   const [volFormData, setVolFormData] = useState({
@@ -51,7 +53,7 @@ function Register() {
   };
 
   const isValidPasswordFormat = (password) => {
-    // Must be more than 6 characters, have at least one capital letter, one special character, and no spaces
+    // Must be 7 characters or longer, have at least one capital letter, one special character, and no spaces
     const hasMinLength = password.length > 6;
     const hasCapitalLetter = /[A-Z]/.test(password);
     const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`]/.test(password);
@@ -61,11 +63,13 @@ function Register() {
 
   const getPasswordErrors = (password) => {
     const errors = [];
-    if (password.length <= 6) errors.push("Must be more than 6 characters");
+    if (password.length <= 6) errors.push("Must be 7 characters or longer");
     if (!/[A-Z]/.test(password))
       errors.push("Must include at least one capital letter");
     if (!/[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`]/.test(password))
-      errors.push("Must include at least one special character");
+      errors.push(
+        "Must include at least one special character (!@#$%^&*()_+-=[]{}|;:',.<>?/~`)",
+      );
     if (/\s/.test(password)) errors.push("Cannot contain spaces");
     return errors;
   };
@@ -140,7 +144,7 @@ function Register() {
 
     try {
       const response = await fetch(
-        `http://localhost:5000/api/organizations/verify-ein/${digits}`,
+        `${API_URL}/api/organizations/verify-ein/${digits}`,
       );
 
       if (!response.ok) {
@@ -291,7 +295,7 @@ function Register() {
     }
 
     try {
-      const response = await fetch("http://localhost:5000/api/auth/register", {
+      const response = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -397,27 +401,24 @@ function Register() {
     }
 
     try {
-      const response = await fetch(
-        "http://localhost:5000/api/organizations/register",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            username: orgFormData.username,
-            email: orgFormData.email,
-            password: orgFormData.password,
-            organization_name: orgFormData.name,
-            phone_number: orgFormData.phone,
-            first_name: orgFormData.firstName,
-            last_name: orgFormData.lastName,
-            zip_code: orgFormData.zip,
-            ein: orgFormData.ein,
-            verification_method: "ein",
-          }),
+      const response = await fetch(`${API_URL}/api/organizations/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          username: orgFormData.username,
+          email: orgFormData.email,
+          password: orgFormData.password,
+          organization_name: orgFormData.name,
+          phone_number: orgFormData.phone,
+          first_name: orgFormData.firstName,
+          last_name: orgFormData.lastName,
+          zip_code: orgFormData.zip,
+          ein: orgFormData.ein,
+          verification_method: "ein",
+        }),
+      });
 
       const data = await response.json();
 

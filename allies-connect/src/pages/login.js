@@ -16,13 +16,10 @@ function Login({ setUser, setRole }) {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/login",
-        {
-          username,
-          password,
-        },
-      );
+      const response = await axios.post(`${API_URL}/api/auth/login`, {
+        username,
+        password,
+      });
       console.log("Login successful:", response.data);
 
       if (!response.data.roles.includes(userRole)) {

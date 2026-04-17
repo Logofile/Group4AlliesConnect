@@ -11,6 +11,8 @@ import {
 import { useNavigate, useParams } from "react-router-dom";
 import "../App.css";
 
+const API_URL = process.env.REACT_APP_API_URL;
+
 function InviteRegister() {
   const { token } = useParams();
   const navigate = useNavigate();
@@ -53,11 +55,13 @@ function InviteRegister() {
 
   const getPasswordErrors = (password) => {
     const errors = [];
-    if (password.length <= 6) errors.push("Must be more than 6 characters");
+    if (password.length <= 6) errors.push("Must be seven characters or longer");
     if (!/[A-Z]/.test(password))
       errors.push("Must include at least one capital letter");
     if (!/[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`]/.test(password))
-      errors.push("Must include at least one special character");
+      errors.push(
+        "Must include at least one special character (!@#$%^&*()_+-=[]{}|;:',.<>?/~`)",
+      );
     if (/\s/.test(password)) errors.push("Cannot contain spaces");
     return errors;
   };
@@ -87,7 +91,7 @@ function InviteRegister() {
   const fetchInvite = useCallback(async () => {
     try {
       const response = await fetch(
-        `http://localhost:5000/api/organizations/invite/${token}`,
+        `${API_URL}/api/organizations/invite/${token}`,
       );
 
       if (!response.ok) {
@@ -146,18 +150,44 @@ function InviteRegister() {
     isValidPhoneFormat(formData.phone) &&
     formData.zip;
 
+  const getFormErrors = () => {
+    const errors = [];
+    if (!formData.username) errors.push("Username is required");
+    else if (!isValidUsernameFormat(formData.username))
+      errors.push(
+        "Username must be 3-50 characters with only letters, numbers, underscores, and hyphens",
+      );
+    if (!formData.email) errors.push("Email is required");
+    else if (!isValidEmailFormat(formData.email))
+      errors.push("Email must be in a valid format (e.g., user@example.com)");
+    if (!formData.password) errors.push("Password is required");
+    else if (!isValidPasswordFormat(formData.password))
+      errors.push("Password does not meet requirements");
+    if (!formData.confirmPassword) errors.push("Confirm Password is required");
+    else if (formData.password !== formData.confirmPassword)
+      errors.push("Passwords do not match");
+    if (!formData.firstName) errors.push("First Name is required");
+    if (!formData.lastName) errors.push("Last Name is required");
+    if (!formData.phone) errors.push("Phone Number is required");
+    else if (!isValidPhoneFormat(formData.phone))
+      errors.push("Phone number must be a valid 10-digit format");
+    if (!formData.zip) errors.push("ZIP Code is required");
+    return errors;
+  };
+
   // Handle registration
   const handleRegister = async (e) => {
     e.preventDefault();
 
-    if (!isFormValid) {
-      alert("Please fill in all fields correctly.");
+    const formErrors = getFormErrors();
+    if (formErrors.length > 0) {
+      alert("Please correct the following:\n\n• " + formErrors.join("\n• "));
       return;
     }
 
     try {
       const response = await fetch(
-        "http://localhost:5000/api/organizations/invite-register",
+        `${API_URL}/api/organizations/invite-register`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

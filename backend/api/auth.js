@@ -97,7 +97,7 @@ module.exports = function (app, pool) {
         if (!isValidPasswordFormat(password)) {
           return res.status(400).json({
             error:
-              "Password must be more than 6 characters and include at least one capital letter and one special character (!@#$%^&*()_+-=[]{}|;:',./~`), and cannot contain spaces",
+              "Password must be seven characters or longer and include at least one capital letter and one special character (!@#$%^&*()_+-=[]{}|;:',./~`), and cannot contain spaces",
           });
         }
 
@@ -343,7 +343,7 @@ module.exports = function (app, pool) {
         if (!isValidPasswordFormat(password)) {
           return res.status(400).json({
             error:
-              "Password must be more than 6 characters and include at least one capital letter and one special character (!@#$%^&*()_+-=[]{}|;:',./~`), and cannot contain spaces",
+              "Password must be seven characters or longer and include at least one capital letter and one special character (!@#$%^&*()_+-=[]{}|;:',./~`), and cannot contain spaces",
           });
         }
 
