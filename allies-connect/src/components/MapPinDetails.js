@@ -97,6 +97,20 @@ function MapPinDetails({ details }) {
         width: "100%",
       }}
     >
+      {details.type && (
+        <h6
+          style={{
+            marginBottom: "4px",
+            color: "#888",
+            fontWeight: "600",
+            textTransform: "uppercase",
+            letterSpacing: "0.5px",
+            fontSize: "12px",
+          }}
+        >
+          {details.type}
+        </h6>
+      )}
       <h4 style={{ marginBottom: "15px", color: "#333", fontWeight: "500" }}>
         {details.name}
       </h4>
@@ -130,6 +144,15 @@ function MapPinDetails({ details }) {
         <Col xs={12} md={8} style={{ paddingLeft: "10px" }}>
           <div style={{ fontSize: "13px", lineHeight: "1.4", color: "#444" }}>
             {details.address && <div>Address: {details.address}</div>}
+            {details.eventDateTime && (
+              <div>
+                Date &amp; Time:
+                <br />
+                <span style={{ whiteSpace: "pre-line" }}>
+                  {details.eventDateTime}
+                </span>
+              </div>
+            )}
             {details.hours && (
               <div>
                 Hours:

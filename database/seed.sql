@@ -56,19 +56,34 @@ INSERT INTO ProviderPostingPolicy (provider_id, max_events_per_month, max_opport
 -- 9. Categories
 INSERT INTO Category (name, type) VALUES
 ('Food Assistance', 'both'),
-('Housing', 'resource'),
-('Educational Workshop', 'event');
+('Housing', 'both'),
+('Education', 'both'),
+('Events','event'),
+('Legal', 'both'),
+('Social Advocacy', 'both'),
+('Unions', 'both'),
+('Community Gathering', 'both'),
+('Employment', 'both'),
+('Environment', 'both'),
+('Arts and Culture', 'both');
+
 
 -- 10. Resources
-INSERT INTO Resource (provider_id, category_id, location_id, name, description, image_url, eligibility_requirements, contact_name, contact_email, contact_phone, languages_spoken, accessibility, social_media_links) VALUES
-(1, 1, 1, 'Emergency Food Pantry', 'Weekly groceries for families in need.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(2, 2, 2, 'Overnight Beds', 'Safe sleeping environment for individuals.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(3, 3, 3, 'Public Computer Lab', 'Free internet and computer access.', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+INSERT INTO Resource (provider_id, category_id, location_id, name, description, hours, image_url, eligibility_requirements, contact_name, contact_email, contact_phone, languages_spoken, accessibility, social_media_links) VALUES
+(1, 1, 1, 'Emergency Food Pantry', 'Weekly groceries for families in need.',
+  '{"monday":{"closed":false,"open":"09:00","close":"17:00"},"tuesday":{"closed":false,"open":"09:00","close":"17:00"},"wednesday":{"closed":false,"open":"09:00","close":"17:00"},"thursday":{"closed":false,"open":"09:00","close":"17:00"},"friday":{"closed":false,"open":"09:00","close":"17:00"},"saturday":{"closed":true,"open":"","close":""},"sunday":{"closed":true,"open":"","close":""}}',
+  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(2, 2, 2, 'Overnight Beds', 'Safe sleeping environment for individuals.',
+  '{"monday":{"closed":false,"open":"18:00","close":"08:00"},"tuesday":{"closed":false,"open":"18:00","close":"08:00"},"wednesday":{"closed":false,"open":"18:00","close":"08:00"},"thursday":{"closed":false,"open":"18:00","close":"08:00"},"friday":{"closed":false,"open":"18:00","close":"08:00"},"saturday":{"closed":false,"open":"18:00","close":"08:00"},"sunday":{"closed":false,"open":"18:00","close":"08:00"}}',
+  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
+(3, 3, 3, 'Public Computer Lab', 'Free internet and computer access.',
+  '{"monday":{"closed":false,"open":"08:00","close":"20:00"},"tuesday":{"closed":false,"open":"08:00","close":"20:00"},"wednesday":{"closed":false,"open":"08:00","close":"20:00"},"thursday":{"closed":false,"open":"08:00","close":"20:00"},"friday":{"closed":false,"open":"08:00","close":"16:00"},"saturday":{"closed":false,"open":"10:00","close":"14:00"},"sunday":{"closed":true,"open":"","close":""}}',
+  NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
 
 -- 11. Events
-INSERT INTO Event (provider_id, category_id, location_id, title, start_datetime, end_datetime, registration_required, image_url, flyer_url) VALUES
-(1, 1, 1, 'Community Thanksgiving Dinner', '2026-11-26 17:00:00', '2026-11-26 21:00:00', 'no', NULL, NULL),
-(3, 3, 3, 'Coding 101 Workshop', '2026-04-10 10:00:00', '2026-04-10 14:00:00', 'yes', NULL, NULL);
+INSERT INTO Event (provider_id, category_id, location_id, title, start_datetime, end_datetime, registration_required, image_url, flyer_url, attendance) VALUES
+(1, 1, 1, 'Community Thanksgiving Dinner', '2026-11-26 17:00:00', '2026-11-26 21:00:00', 'no', NULL, NULL, 2),
+(3, 3, 3, 'Coding 101 Workshop', '2026-04-10 10:00:00', '2026-04-10 14:00:00', 'yes', NULL, NULL, 1);
 
 -- 12. Event RSVPs
 INSERT INTO EventRSVP (event_id, user_id, status) VALUES

@@ -7,11 +7,13 @@ const API_URL = process.env.REACT_APP_API_URL;
 
 const getPasswordErrors = (password) => {
   const errors = [];
-  if (password.length <= 6) errors.push("Must be more than 6 characters");
+  if (password.length <= 6) errors.push("Must be seven characters or longer");
   if (!/[A-Z]/.test(password))
     errors.push("Must include at least one capital letter");
   if (!/[!@#$%^&*()_+\-=[\]{}|;:',.<>?/~`]/.test(password))
-    errors.push("Must include at least one special character");
+    errors.push(
+      "Must include at least one special character (!@#$%^&*()_+-=[]{}|;:',.<>?/~`)",
+    );
   if (/\s/.test(password)) errors.push("Cannot contain spaces");
   return errors;
 };

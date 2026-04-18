@@ -3,6 +3,82 @@ const { requireRole } = require("../middleware/permissions");
 const { geocodeAddress } = require("../utils/geocode");
 const { rateLimit } = require("../middleware/rateLimit");
 
+const VALID_DAYS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+];
+
+/**
+ * Validate that an hours object has the correct structure:
+ * { monday: { closed: bool, open: string, close: string }, ... }
+ * Returns null if valid, or an error message string if invalid.
+ */
+function validateHours(hours) {
+  if (typeof hours !== "object" || hours === null || Array.isArray(hours)) {
+    return "Hours must be a JSON object with day keys.";
+  }
+
+  for (const day of VALID_DAYS) {
+    if (!(day in hours)) {
+      return `Missing day: ${day}`;
+    }
+    const entry = hours[day];
+    if (typeof entry !== "object" || entry === null) {
+      return `Invalid entry for ${day}: must be an object.`;
+    }
+    if (typeof entry.closed !== "boolean") {
+      return `Invalid entry for ${day}: 'closed' must be a boolean.`;
+    }
+    if (typeof entry.open !== "string" || typeof entry.close !== "string") {
+      return `Invalid entry for ${day}: 'open' and 'close' must be strings.`;
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Normalize hours input to a validated JSON string.
+ * Accepts either a plain object or a JSON-encoded string.
+ * Returns { value: string } on success or { error: string } on failure.
+ */
+function normalizeHours(hours) {
+  let parsed = hours;
+  if (typeof hours === "string") {
+    try {
+      parsed = JSON.parse(hours);
+    } catch {
+      return { error: "Hours must be a valid JSON object." };
+    }
+  }
+
+  const validationError = validateHours(parsed);
+  if (validationError) {
+    return { error: validationError };
+  }
+
+  return { value: JSON.stringify(parsed) };
+}
+
+/**
+ * Safely parse a stored hours JSON string back into an object.
+ * Returns the original value if parsing fails (backward-compatible
+ * with any old plain-text hours still in the database).
+ */
+function parseHours(hours) {
+  if (!hours) return hours;
+  try {
+    return typeof hours === "string" ? JSON.parse(hours) : hours;
+  } catch {
+    return hours;
+  }
+}
+
 module.exports = function (app, pool) {
   // GET /api/resources
   // Optional filters: category, zip
@@ -58,7 +134,11 @@ module.exports = function (app, pool) {
       query += " ORDER BY r.name ASC";
 
       const [rows] = await pool.promise().query(query, params);
-      res.json(rows);
+      const result = rows.map((row) => ({
+        ...row,
+        hours: parseHours(row.hours),
+      }));
+      res.json(result);
     } catch (err) {
       console.error("Error fetching resources:", err);
       res.status(500).json({ error: "Failed to fetch resources" });
@@ -110,7 +190,8 @@ module.exports = function (app, pool) {
         return res.status(404).json({ error: "Resource not found" });
       }
 
-      res.json(rows[0]);
+      const resource = { ...rows[0], hours: parseHours(rows[0].hours) };
+      res.json(resource);
     } catch (err) {
       console.error("Error fetching resource details:", err);
       res.status(500).json({ error: "Failed to fetch resource details" });
@@ -180,6 +261,16 @@ module.exports = function (app, pool) {
           conn.release();
           return res.status(400).json({ error: "Missing required fields." });
         }
+
+        // Validate and normalize hours to a JSON string
+        const hoursResult = normalizeHours(hours);
+        if (hoursResult.error) {
+          conn.release();
+          return res
+            .status(400)
+            .json({ error: `Invalid hours: ${hoursResult.error}` });
+        }
+        const hoursJson = hoursResult.value;
 
         await conn.beginTransaction();
 
@@ -254,7 +345,7 @@ module.exports = function (app, pool) {
             locationId,
             name,
             description || null,
-            hours,
+            hoursJson,
             image_url || null,
             eligibility_requirements || null,
             contact_name || null,
@@ -315,6 +406,18 @@ module.exports = function (app, pool) {
           social_media_links,
         } = req.body;
 
+        // Validate and normalize hours if provided
+        let hoursJson = null;
+        if (hours) {
+          const hoursResult = normalizeHours(hours);
+          if (hoursResult.error) {
+            return res
+              .status(400)
+              .json({ error: `Invalid hours: ${hoursResult.error}` });
+          }
+          hoursJson = hoursResult.value;
+        }
+
         const query = `
         UPDATE Resource
         SET
@@ -341,7 +444,7 @@ module.exports = function (app, pool) {
             location_id,
             name,
             description || null,
-            hours || null,
+            hoursJson,
             image_url || null,
             eligibility_requirements || null,
             contact_name || null,

@@ -1,6 +1,7 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- Drop tables
+DROP TABLE IF EXISTS OrganizationInvite;
 DROP TABLE IF EXISTS PasswordResetToken;
 DROP TABLE IF EXISTS VolunteerUnavailableDate;
 DROP TABLE IF EXISTS VolunteerAvailability;
@@ -198,6 +199,7 @@ CREATE TABLE Event (
   special_instructions TEXT NULL,
   image_url VARCHAR(255) NULL,
   flyer_url VARCHAR(255) NULL,
+  attendance INT NOT NULL DEFAULT 0,
   created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (event_id),
   CONSTRAINT fk_event_provider
@@ -391,5 +393,26 @@ CREATE TABLE PasswordResetToken (
   UNIQUE KEY uq_reset_token (token(191)),
   CONSTRAINT fk_resettoken_user
     FOREIGN KEY (user_id) REFERENCES `User`(user_id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Organization Invite Tokens
+CREATE TABLE OrganizationInvite (
+  invite_id INT NOT NULL AUTO_INCREMENT,
+  provider_id INT NOT NULL,
+  invited_by_user_id INT NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  username_suggestion VARCHAR(100) NULL,
+  token VARCHAR(255) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (invite_id),
+  UNIQUE KEY uq_invite_token (token(191)),
+  CONSTRAINT fk_invite_provider
+    FOREIGN KEY (provider_id) REFERENCES ServiceProvider(provider_id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_invite_user
+    FOREIGN KEY (invited_by_user_id) REFERENCES `User`(user_id)
     ON DELETE CASCADE ON UPDATE CASCADE
 );
