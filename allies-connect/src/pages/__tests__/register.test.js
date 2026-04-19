@@ -9,7 +9,7 @@ describe('Register Page', () => {
     window.google = {
       maps: {
         places: {
-          Autocomplete: class {}
+          Autocomplete: class { }
         }
       }
     };
@@ -20,7 +20,7 @@ describe('Register Page', () => {
       </BrowserRouter>
     );
 
-    expect(screen.getByText(/Volunteer\/Individual/i)).toBeInTheDocument();
-    expect(screen.getByText(/Service Provider/i)).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Volunteer/i })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Organization/i })).toBeInTheDocument();
   });
 });
