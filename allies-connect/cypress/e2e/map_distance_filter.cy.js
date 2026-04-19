@@ -74,7 +74,7 @@ describe('Map Distance Filter Flow', () => {
     // After filtering is applied, we expect the map to only have 2 markers left 
     // The "Far Event" (15 miles out) should be dynamically stripped from the DOM or Google Maps cluster
     // Note: Map pins don't render raw text to the DOM, they use 'title' attributes!
-    cy.get('[title="Far Event (Event)"]').should('not.exist');
-    cy.get('[title="Close Event (Event)"]').should('exist');
+    cy.get('[title="Far Event"]').should('not.exist');
+    cy.get('[title="Close Event"]').should('exist');
   });
 });

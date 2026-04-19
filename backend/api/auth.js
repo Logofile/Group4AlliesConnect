@@ -313,8 +313,8 @@ module.exports = function (app, pool) {
           });
 
           console.log(`Password reset email sent to ${email}`);
-          res.json({ message: successMsg });
         }
+        res.json({ message: successMsg });
       } catch (err) {
         console.error("Error in forgot-password:", err);
         // Still return success to avoid leaking info, but log the error

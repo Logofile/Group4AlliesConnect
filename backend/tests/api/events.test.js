@@ -5,6 +5,10 @@ const mysql = require("mysql2");
 const mockPool = mysql._mockPool;
 const mockConnection = mysql._mockConnection;
 
+jest.mock("../../utils/geocode", () => ({
+  geocodeAddress: jest.fn().mockResolvedValue({ lat: 33.749, lng: -84.388 }),
+}));
+
 jest.mock("../../middleware/permissions", () => ({
   requireRole: (pool, role) => {
     return (req, res, next) => {

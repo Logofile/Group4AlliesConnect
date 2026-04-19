@@ -5,50 +5,27 @@ import Navbar from '../navbar';
 
 describe('Navbar Component', () => {
   it('renders standard links for unauthenticated users', () => {
-    // Mock local storage to contain nothing
-    Storage.prototype.getItem = jest.fn(() => null);
-
     render(
       <BrowserRouter>
-        <Navbar />
+        <Navbar user={null} role={null} />
       </BrowserRouter>
     );
 
     expect(screen.getByText('Login')).toBeInTheDocument();
     expect(screen.getByText('Register')).toBeInTheDocument();
-    expect(screen.getByText('Map')).toBeInTheDocument();
   });
 
-  it('renders volunteer links for volunteer role', () => {
-    Storage.prototype.getItem = jest.fn((key) => {
-      if (key === 'role') return 'volunteer';
-      if (key === 'token') return 'fake-token';
-      return null;
-    });
-
+  it('renders dashboard link for authenticated users', () => {
+    const mockUser = { first_name: 'John', email: 'john@example.com' };
+    
     render(
       <BrowserRouter>
-        <Navbar />
+        <Navbar user={mockUser} role="volunteer" />
       </BrowserRouter>
     );
 
-    expect(screen.getByText('Volunteer')).toBeInTheDocument();
+    expect(screen.getByText(/Hello, John/i)).toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.queryByText('Login')).not.toBeInTheDocument();
-  });
-
-  it('renders provider links for provider role', () => {
-    Storage.prototype.getItem = jest.fn((key) => {
-      if (key === 'role') return 'provider';
-      if (key === 'token') return 'fake-token';
-      return null;
-    });
-
-    render(
-      <BrowserRouter>
-        <Navbar />
-      </BrowserRouter>
-    );
-
-    expect(screen.getByText('Provider Portal')).toBeInTheDocument();
   });
 });

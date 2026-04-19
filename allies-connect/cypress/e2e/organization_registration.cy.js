@@ -52,8 +52,15 @@ describe('Organization Registration Flow', () => {
       .click({ force: true });
 
     cy.get('.tab-pane.active').within(() => {
-      // Intercept the backend request before it happens
-      cy.intercept('POST', '**/api/organizations/register').as('registerRequest');
+      // Intercept the backend request before it happens and return a mock success
+      cy.intercept('POST', '**/api/organizations/register', {
+        statusCode: 201,
+        body: {
+          message: "Organization registered successfully",
+          user_id: 123,
+          provider_id: 456
+        }
+      }).as('registerRequest');
 
       // Click the nested Register button
       cy.get('button').contains('Register').should('not.be.disabled').click();

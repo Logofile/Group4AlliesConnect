@@ -12,6 +12,6 @@ describe('Home Page', () => {
     );
 
     // Search for texts typically found on the homepage
-    expect(screen.getByText(/Find the Support You Need/i)).toBeInTheDocument();
+    expect(screen.getByText(/Georgia's Community Resource/i)).toBeInTheDocument();
   });
 });
