@@ -54,6 +54,40 @@ function useTableDataProcessing(data, searchFields) {
   return { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery };
 }
 
+function formatHoursSummary(hours) {
+  if (!hours) return "N/A";
+
+  let obj = hours;
+  if (typeof hours === "string") {
+    try {
+      obj = JSON.parse(hours);
+    } catch {
+      return hours;
+    }
+  }
+
+  if (typeof obj !== "object" || !obj) return "N/A";
+
+  const days = [
+    "monday",
+    "tuesday",
+    "wednesday",
+    "thursday",
+    "friday",
+    "saturday",
+    "sunday",
+  ];
+
+  return days
+    .map((day) => {
+      const d = obj[day];
+      if (!d) return `${day.slice(0, 3)}: N/A`;
+      if (d.closed) return `${day.slice(0, 3)}: Closed`;
+      return `${day.slice(0, 3)}: ${d.open || "?"}-${d.close || "?"}`;
+    })
+    .join("; ");
+}
+
 function PendingOrgsContent({ onViewDetails }) {
   const [pendingOrgs, setPendingOrgs] = useState([]);
   const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } =
@@ -203,6 +237,9 @@ function EditAccountsContent({ onViewDetails }) {
       const response = await fetch(`${API_URL}/api/admin/accounts`, {
         headers: getAuthHeaders(),
       });
+      if (!response.ok) {
+        throw new Error(`Failed with status ${response.status}`);
+      }
       const data = await response.json();
       setAccounts(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -361,7 +398,7 @@ function ManageResourcesContent({ onViewDetails }) {
                 <td>{resource.name}</td>
                 <td>{resource.zip}</td>
                 <td>{resource.provider_name}</td>
-                <td>{resource.hours}</td>
+                <td>{formatHoursSummary(resource.hours)}</td>
                 <td>{resource.category_name}</td>
                 <td>
                   <button

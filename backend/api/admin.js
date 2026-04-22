@@ -3,6 +3,90 @@ const { requireRole } = require("../middleware/permissions");
 const { rateLimit } = require("../middleware/rateLimit");
 
 module.exports = function (app, pool) {
+  // GET /api/admin/accounts
+  // Retrieves all user accounts for admin account management
+  app.get("/api/admin/accounts", requireRole(pool, "admin"), async (req, res) => {
+    try {
+      const [rows] = await pool.promise().query(
+        `SELECT
+          u.user_id,
+          u.username,
+          u.email,
+          u.status,
+          p.first_name,
+          p.last_name,
+          p.phone,
+          p.zip_code,
+          CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, '')) AS name,
+          GROUP_CONCAT(DISTINCT r.role_name ORDER BY r.role_name SEPARATOR ',') AS roles,
+          NULL AS date_created,
+          NULL AS date_updated
+        FROM User u
+        LEFT JOIN UserProfile p ON u.user_id = p.user_id
+        LEFT JOIN UserRole ur ON u.user_id = ur.user_id
+        LEFT JOIN Role r ON ur.role_id = r.role_id
+        GROUP BY
+          u.user_id,
+          u.username,
+          u.email,
+          u.status,
+          p.first_name,
+          p.last_name,
+          p.phone,
+          p.zip_code
+        ORDER BY u.user_id DESC`,
+      );
+
+      const accounts = rows.map((row) => ({
+        ...row,
+        name: (row.name || "").trim() || "N/A",
+        roles: row.roles || "N/A",
+      }));
+
+      res.json(accounts);
+    } catch (err) {
+      console.error("Error fetching admin accounts:", err);
+      res.status(500).json({ error: "Failed to fetch accounts" });
+    }
+  });
+
+  // DELETE /api/admin/accounts/:id
+  // Allows admin to delete an account (except their own)
+  app.delete(
+    "/api/admin/accounts/:id",
+    rateLimit(),
+    requireRole(pool, "admin"),
+    async (req, res) => {
+      try {
+        const targetUserId = Number(req.params.id);
+        const actorUserId = Number(req.currentUser?.user_id || 0);
+
+        if (!Number.isInteger(targetUserId) || targetUserId <= 0) {
+          return res.status(400).json({ error: "Invalid user id" });
+        }
+
+        if (targetUserId === actorUserId) {
+          return res.status(400).json({ error: "Admins cannot delete their own account" });
+        }
+
+        const [result] = await pool
+          .promise()
+          .query("DELETE FROM User WHERE user_id = ?", [targetUserId]);
+
+        if (!result.affectedRows) {
+          return res.status(404).json({ error: "Account not found" });
+        }
+
+        await logAudit(pool, actorUserId || 1, "DELETE_ACCOUNT", "User", targetUserId);
+
+        res.json({ message: "Account deleted" });
+      } catch (err) {
+        console.error("Error deleting account:", err);
+        res.status(500).json({ error: "Failed to delete account" });
+      }
+    },
+  );
+
   // GET /api/admin/pending-providers
   // Retrieves providers waiting for approval
   app.get(

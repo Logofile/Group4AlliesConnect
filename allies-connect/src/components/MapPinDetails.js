@@ -1,10 +1,12 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { Button, Col, Image, Modal, Row } from "react-bootstrap";
+import { useNavigate } from "react-router-dom";
 
 const API_URL = process.env.REACT_APP_API_URL;
 
 function MapPinDetails({ details }) {
+  const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem("user"));
   const role = JSON.parse(localStorage.getItem("role"));
   const isVolunteer = !!user && role === "volunteer";
@@ -198,6 +200,28 @@ function MapPinDetails({ details }) {
           </div>
 
           <div className="mt-3">
+            {details.flyer_url && (
+              <div className="mb-2">
+                <Button
+                  variant="outline-info"
+                  href={details.flyer_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  download
+                  style={{
+                    width: "100%",
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    padding: "6px 15px",
+                    borderColor: "#0097a7",
+                    color: "#0097a7",
+                    backgroundColor: "transparent",
+                  }}
+                >
+                  Download Flyer
+                </Button>
+              </div>
+            )}
             <div className="d-flex mb-2" style={{ gap: "10px" }}>
               {/* TODO: Make the buttons go to a page */}
               {details.eligibility_requirements && (
@@ -217,20 +241,44 @@ function MapPinDetails({ details }) {
                   Eligibility Requirements
                 </Button>
               )}
-              <Button
-                variant="info"
-                style={{
-                  flex: 1,
-                  borderRadius: "20px",
-                  fontSize: "12px",
-                  padding: "6px 15px",
-                  backgroundColor: "#0097a7",
-                  borderColor: "#0097a7",
-                  color: "white",
-                }}
-              >
-                Upcoming Events
-              </Button>
+              {details.type === "Event" ? (
+                <Button
+                  variant="info"
+                  onClick={() => {
+                    navigate(`/events?eventId=${details.event_id}`);
+                  }}
+                  style={{
+                    flex: 1,
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    padding: "6px 15px",
+                    backgroundColor: "#0097a7",
+                    borderColor: "#0097a7",
+                    color: "white",
+                  }}
+                >
+                  See More Info
+                </Button>
+              ) : (
+                <Button
+                  variant="info"
+                  onClick={() => {
+                    const orgName = details.provider_name || details.name;
+                    navigate(`/events?org=${encodeURIComponent(orgName)}`);
+                  }}
+                  style={{
+                    flex: 1,
+                    borderRadius: "20px",
+                    fontSize: "12px",
+                    padding: "6px 15px",
+                    backgroundColor: "#0097a7",
+                    borderColor: "#0097a7",
+                    color: "white",
+                  }}
+                >
+                  Upcoming Events
+                </Button>
+              )}
             </div>
             {isVolunteer && (
               <Button

@@ -333,6 +333,29 @@ module.exports = function (app, pool) {
     }
   });
 
+  // POST /api/events/:id/attend
+  // Increment the attendance counter by 1 (no login required)
+  app.post("/api/events/:id/attend", rateLimit(), async (req, res) => {
+    try {
+      const eventId = req.params.id;
+
+      await pool.promise().query(
+        `UPDATE Event SET attendance = COALESCE(attendance, 0) + 1 WHERE event_id = ?`,
+        [eventId],
+      );
+
+      const [rows] = await pool.promise().query(
+        `SELECT attendance FROM Event WHERE event_id = ?`,
+        [eventId],
+      );
+
+      res.json({ attendance: rows[0]?.attendance ?? 0 });
+    } catch (err) {
+      console.error("Error incrementing attendance:", err);
+      res.status(500).json({ error: "Failed to record attendance" });
+    }
+  });
+
   // POST /api/events/:id/rsvp
   // Body: { userId, status }
   app.post("/api/events/:id/rsvp", rateLimit(), async (req, res) => {
