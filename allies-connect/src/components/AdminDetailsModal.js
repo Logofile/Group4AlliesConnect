@@ -128,6 +128,19 @@ function EditAccountsContent({ data, onSave }) {
     }
   };
 
+  const handleDelete = async () => {
+    if (!window.confirm("Delete this account? This cannot be undone.")) return;
+    try {
+      await axios.delete(`${API_URL}/api/admin/accounts/${form.user_id}`, {
+        headers: getAuthHeaders(),
+      });
+      alert("Account deleted successfully.");
+      onSave();
+    } catch (error) {
+      alert("Error deleting account.");
+    }
+  };
+
   return (
     <>
       <EditableField label="Email" value={form.email} readOnly />
@@ -150,6 +163,9 @@ function EditAccountsContent({ data, onSave }) {
       />
       <Row className="justify-content-end mt-3">
         <Col md={4}>
+          <Button variant="danger" className="w-100 mb-2" onClick={handleDelete}>
+            Delete Account
+          </Button>
           <Button className="btn-gold w-100" onClick={handleSave}>
             Save Changes
           </Button>
@@ -161,13 +177,45 @@ function EditAccountsContent({ data, onSave }) {
 
 function ManageResourcesContent({ data, onSave }) {
   const [form, setForm] = useState({});
+  // For hours editing
+  const [hours, setHours] = useState(() => ({}));
 
   useEffect(() => {
     setForm(data || {});
+    // Parse hours for editing
+    let h = data?.hours;
+    if (typeof h === "string") {
+      try { h = JSON.parse(h); } catch { h = {}; }
+    }
+    setHours(h || {});
   }, [data]);
 
-  const set = (field) => (value) =>
+  const set = (field) => (value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
+    if (field === "hours") {
+      let h = value;
+      if (typeof h === "string") {
+        try { h = JSON.parse(h); } catch { h = {}; }
+      }
+      setHours(h || {});
+    }
+  };
+
+  // Handle per-day hours change
+  const handleHoursChange = (day, field, value) => {
+    setHours((prev) => {
+      const updated = { ...prev, [day]: { ...prev[day], [field]: value } };
+      setForm((f) => ({ ...f, hours: updated }));
+      return updated;
+    });
+  };
+  const handleClosedToggle = (day) => {
+    setHours((prev) => {
+      const updated = { ...prev, [day]: { ...prev[day], closed: !prev[day]?.closed } };
+      setForm((f) => ({ ...f, hours: updated }));
+      return updated;
+    });
+  };
 
   const handleSave = async () => {
     try {
@@ -178,7 +226,7 @@ function ManageResourcesContent({ data, onSave }) {
           location_id: form.location_id,
           name: form.name,
           description: form.description,
-          hours: form.hours,
+          hours: JSON.stringify(hours),
           image_url: form.image_url,
           eligibility_requirements: form.eligibility_requirements,
         },
@@ -216,7 +264,51 @@ function ManageResourcesContent({ data, onSave }) {
         value={form.description}
         onChange={set("description")}
       />
-      <EditableField label="Hours" value={form.hours} onChange={set("hours")} />
+      {/* Editable hours table */}
+      <div className="mb-3">
+        <strong>Hours of Operation</strong>
+        <table className="table table-sm mt-2">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Closed</th>
+              <th>Open</th>
+              <th>Close</th>
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              "monday","tuesday","wednesday","thursday","friday","saturday","sunday"
+            ].map((day) => {
+              const d = hours?.[day] || {};
+              return (
+                <tr key={day}>
+                  <td>{day.charAt(0).toUpperCase() + day.slice(1,3)}</td>
+                  <td>
+                    <input type="checkbox" checked={!!d.closed} onChange={() => handleClosedToggle(day)} />
+                  </td>
+                  <td>
+                    <input
+                      type="time"
+                      value={d.open || ""}
+                      disabled={!!d.closed}
+                      onChange={e => handleHoursChange(day, "open", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="time"
+                      value={d.close || ""}
+                      disabled={!!d.closed}
+                      onChange={e => handleHoursChange(day, "close", e.target.value)}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       <EditableField label="Category" value={form.category_name} readOnly />
       <EditableField
         label="Eligibility Requirements"

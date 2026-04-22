@@ -18,6 +18,85 @@ describe('Admin API Endpoints', () => {
     jest.clearAllMocks();
   });
 
+  // ── GET /api/admin/accounts ───────────────────────────────────────
+
+  describe('GET /api/admin/accounts', () => {
+    it('should return admin account list', async () => {
+      mockPool.promise().query.mockResolvedValueOnce([
+        [
+          {
+            user_id: 1,
+            username: 'admin1',
+            email: 'admin@example.com',
+            name: 'Admin User',
+            roles: 'admin',
+            date_created: null,
+            date_updated: null,
+          },
+        ],
+      ]);
+
+      const res = await request(app)
+        .get('/api/admin/accounts')
+        .set('x-user-id', '1');
+
+      expect(res.statusCode).toEqual(200);
+      expect(res.body).toBeInstanceOf(Array);
+      expect(res.body[0].email).toBe('admin@example.com');
+      expect(res.body[0].roles).toBe('admin');
+    });
+
+    it('should handle internal server errors', async () => {
+      mockPool.promise().query.mockRejectedValueOnce(new Error('DB Error'));
+
+      const res = await request(app)
+        .get('/api/admin/accounts')
+        .set('x-user-id', '1');
+
+      expect(res.statusCode).toEqual(500);
+      expect(res.body.error).toBe('Failed to fetch accounts');
+    });
+  });
+
+  // ── DELETE /api/admin/accounts/:id ───────────────────────────────
+
+  describe('DELETE /api/admin/accounts/:id', () => {
+    it('should delete an account', async () => {
+      mockPool.promise().query
+        // DELETE User
+        .mockResolvedValueOnce([{ affectedRows: 1 }])
+        // logAudit
+        .mockResolvedValueOnce([{}]);
+
+      const res = await request(app)
+        .delete('/api/admin/accounts/2')
+        .set('x-user-id', '1');
+
+      expect(res.statusCode).toEqual(200);
+      expect(res.body.message).toBe('Account deleted');
+    });
+
+    it('should prevent admin self-delete', async () => {
+      const res = await request(app)
+        .delete('/api/admin/accounts/1')
+        .set('x-user-id', '1');
+
+      expect(res.statusCode).toEqual(400);
+      expect(res.body.error).toMatch(/cannot delete their own account/i);
+    });
+
+    it('should return 404 when account is not found', async () => {
+      mockPool.promise().query.mockResolvedValueOnce([{ affectedRows: 0 }]);
+
+      const res = await request(app)
+        .delete('/api/admin/accounts/999')
+        .set('x-user-id', '1');
+
+      expect(res.statusCode).toEqual(404);
+      expect(res.body.error).toBe('Account not found');
+    });
+  });
+
   // ── GET /api/admin/pending-providers ──────────────────────────────
 
   describe('GET /api/admin/pending-providers', () => {

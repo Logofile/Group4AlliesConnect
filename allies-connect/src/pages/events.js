@@ -10,22 +10,26 @@ import {
   Form,
   Row,
 } from "react-bootstrap";
+import { useSearchParams } from "react-router-dom";
 
 import "../App.css";
 import EventDetailsModal from "../components/EventDetailsModal";
 const API_URL = process.env.REACT_APP_API_URL;
 
 function Events() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [selectedDate, setSelectedDate] = useState(null);
   const [eventNameFilter, setEventNameFilter] = useState("");
   const [eventTypeFilter, setEventTypeFilter] = useState("");
   const [eventLocationFilter, setEventLocationFilter] = useState("");
-  const [eventOrgNameFilter, setEventOrgNameFilter] = useState("");
+  const [eventOrgNameFilter, setEventOrgNameFilter] = useState(
+    searchParams.get("org") || "",
+  );
   const [showInactiveEvents, setShowInactiveEvents] = useState(false);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(!!searchParams.get("org"));
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [showEventModal, setShowEventModal] = useState(false);
 
@@ -36,6 +40,7 @@ function Events() {
     setEventLocationFilter("");
     setEventOrgNameFilter("");
     setShowInactiveEvents(false);
+    setSearchParams({});
   };
 
   useEffect(() => {
@@ -58,6 +63,7 @@ function Events() {
           organization: event.provider_name,
           description: event.description,
           image_url: event.image_url,
+          flyer_url: event.flyer_url,
           status: "Active", // TODO can be derived from data later
         }));
         setEvents(mappedEvents);
@@ -70,6 +76,18 @@ function Events() {
         setLoading(false);
       });
   }, []);
+
+  // Auto-open event details modal when navigated with eventId param
+  useEffect(() => {
+    const eventId = searchParams.get("eventId");
+    if (eventId && events.length > 0) {
+      const match = events.find((e) => String(e.id) === eventId);
+      if (match) {
+        setSelectedEvent(match);
+        setShowEventModal(true);
+      }
+    }
+  }, [events, searchParams]);
 
   const filteredEvents = events.filter((event) => {
     let matchesDate = true;

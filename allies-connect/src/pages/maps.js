@@ -278,6 +278,7 @@ function Maps() {
 
           return {
             id: `event-${event.event_id}`,
+            event_id: event.event_id,
             type: "Event",
             name: event.title,
             category: "Events",
@@ -289,8 +290,9 @@ function Maps() {
             address: `${event.street_address_1}, ${event.city}, ${event.state} ${event.zip}`,
             eventDateTime: `${eventDate}\n${startTime} - ${endTime}`,
             description: event.description || "No description provided.",
+            flyer_url: event.flyer_url || null,
             image:
-              event.image ||
+              event.image_url ||
               "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=500&q=80",
           };
         };
@@ -310,9 +312,10 @@ function Maps() {
             address: `${resource.street_address_1}, ${resource.city}, ${resource.state} ${resource.zip}`,
             hours: formatHours(resource.hours) || "Hours not specified",
             description: resource.description || "No description provided.",
+            provider_name: resource.provider_name || null,
             eligibility_requirements: resource.eligibility_requirements || null,
             image:
-              resource.image ||
+              resource.image_url ||
               "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=500&q=80",
           };
         };

@@ -24,22 +24,20 @@ function EventDetailsModal({ show, onHide, event }) {
   const [loadingSignups, setLoadingSignups] = useState(false);
   const [resigningId, setResigningId] = useState(null);
 
-  // RSVP state
-  const [rsvpStatus, setRsvpStatus] = useState(null); // null | "yes" | "no"
-  const [rsvpLoading, setRsvpLoading] = useState(false);
+  // Attendance state
+  const [attending, setAttending] = useState(false);
 
   // Fetch user signups whenever the modal opens with an event
   useEffect(() => {
     if (show && event) {
       if (isVolunteer) fetchMySignups();
-      if (isLoggedIn) fetchRsvpStatus();
     }
     if (!show) {
       // Reset state when modal closes
       setShowShiftModal(false);
       setShifts([]);
       setShiftMsg(null);
-      setRsvpStatus(null);
+      setAttending(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [show, event]);
@@ -62,37 +60,15 @@ function EventDetailsModal({ show, onHide, event }) {
     }
   };
 
-  const fetchRsvpStatus = async () => {
-    if (!event?.id || !userId) return;
+  const handleAttend = async () => {
+    if (!event?.id) return;
+    setAttending(true);
     try {
-      const res = await fetch(
-        `${API_URL}/api/events/${event.id}/rsvp/${userId}`,
-      );
-      if (res.ok) {
-        const data = await res.json();
-        setRsvpStatus(data.rsvp?.status || null);
-      }
-    } catch (err) {
-      console.error("Error fetching RSVP status:", err);
-    }
-  };
-
-  const handleRsvp = async (status) => {
-    if (!event?.id || !userId) return;
-    setRsvpLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/events/${event.id}/rsvp`, {
+      await fetch(`${API_URL}/api/events/${event.id}/attend`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, status }),
       });
-      if (res.ok) {
-        setRsvpStatus(status);
-      }
     } catch (err) {
-      console.error("Error updating RSVP:", err);
-    } finally {
-      setRsvpLoading(false);
+      console.error("Error recording attendance:", err);
     }
   };
 
@@ -230,31 +206,28 @@ function EventDetailsModal({ show, onHide, event }) {
               </p>
               <hr />
               <div className="d-flex gap-2 mb-3">
-                {isLoggedIn ? (
-                  rsvpStatus === "yes" ? (
-                    <Button
-                      variant="success"
-                      disabled={rsvpLoading || isInactive}
-                      onClick={() => handleRsvp("no")}
-                    >
-                      ✓ Attending — Cancel RSVP
-                    </Button>
-                  ) : (
-                    <Button
-                      className="btn-gold"
-                      disabled={rsvpLoading || isInactive}
-                      onClick={() => handleRsvp("yes")}
-                    >
-                      {isInactive
-                        ? "Event Ended"
-                        : rsvpLoading
-                          ? "Saving…"
-                          : "Attend Event"}
-                    </Button>
-                  )
+                {event.flyer_url && (
+                  <Button
+                    variant="outline-primary"
+                    href={event.flyer_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                  >
+                    Download Flyer
+                  </Button>
+                )}
+                {attending ? (
+                  <Button variant="success" disabled>
+                    ✓ Attending
+                  </Button>
                 ) : (
-                  <Button className="btn-gold" disabled>
-                    Log in to Attend
+                  <Button
+                    className="btn-gold"
+                    disabled={isInactive}
+                    onClick={handleAttend}
+                  >
+                    {isInactive ? "Event Ended" : "Attend Event"}
                   </Button>
                 )}
                 {isVolunteer && (
