@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { Modal } from "react-bootstrap";
 import "../../App.css";
+import { useModalRemountKey } from "../../hooks/useModalRemountKey";
 import VolunteerDetailsModal from "../VolunteerDetailsModal";
 import ContactInfoContent from "./ContactInfoContent";
 import EditAvailabilityContent from "./EditAvailabilityContent";
@@ -43,14 +44,7 @@ function VolunteerModal({ show, onHide, type, userId }) {
 
   // Increment a key each time the modal opens so content components remount
   // and re-fetch fresh data
-  const [openKey, setOpenKey] = useState(0);
-  const prevShow = useRef(false);
-  useEffect(() => {
-    if (show && !prevShow.current) {
-      setOpenKey((k) => k + 1);
-    }
-    prevShow.current = show;
-  }, [show]);
+  const [openKey, bumpKey] = useModalRemountKey(show);
 
   const handleViewDetails = (detailType, data) => {
     setSelectedData(data);
@@ -78,7 +72,7 @@ function VolunteerModal({ show, onHide, type, userId }) {
         onHide={() => {
           setDetailModalType("");
           setSelectedData(null);
-          setOpenKey((k) => k + 1);
+          bumpKey();
         }}
       />
     </Modal>

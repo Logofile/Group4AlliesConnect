@@ -14,7 +14,7 @@ import { useSearchParams } from "react-router-dom";
 
 import "../App.css";
 import EventDetailsModal from "../components/EventDetailsModal";
-const API_URL = process.env.REACT_APP_API_URL;
+import { API_URL } from "../config";
 
 function Events() {
   const [searchParams, setSearchParams] = useSearchParams();

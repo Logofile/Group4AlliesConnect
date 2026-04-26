@@ -1,6 +1,7 @@
 const { logAudit, logEmail } = require("../utils/logging");
 const { requireRole } = require("../middleware/permissions");
 const { rateLimit } = require("../middleware/rateLimit");
+const { sendVolunteerScheduledEmail } = require("../utils/email");
 
 module.exports = function (app, pool) {
   // GET /api/volunteer-opportunities
@@ -618,7 +619,7 @@ module.exports = function (app, pool) {
   // POST /api/volunteer-signups
   app.post("/api/volunteer-signups", rateLimit(), async (req, res) => {
     try {
-      const { shift_id, user_id } = req.body;
+      const { shift_id, user_id, scheduled_by_provider } = req.body;
 
       if (!shift_id || !user_id) {
         return res.status(400).json({
@@ -706,6 +707,42 @@ module.exports = function (app, pool) {
       }
 
       await logEmail(pool, user_id, null, "volunteer_confirmation", "sent");
+
+      if (scheduled_by_provider) {
+        try {
+          const [assignmentRows] = await pool.promise().query(
+            `SELECT
+              u.email,
+              up.first_name,
+              vo.title AS opportunity_title,
+              sp.name AS provider_name,
+              vs.start_datetime,
+              vs.end_datetime
+            FROM VolunteerShift vs
+            JOIN VolunteerOpportunity vo ON vs.opportunity_id = vo.opportunity_id
+            JOIN ServiceProvider sp ON vo.provider_id = sp.provider_id
+            JOIN \`User\` u ON u.user_id = ?
+            LEFT JOIN UserProfile up ON up.user_id = u.user_id
+            WHERE vs.shift_id = ?
+            LIMIT 1`,
+            [user_id, shift_id],
+          );
+
+          const details = assignmentRows[0];
+          if (details?.email) {
+            await sendVolunteerScheduledEmail({
+              to: details.email,
+              firstName: details.first_name,
+              opportunityTitle: details.opportunity_title,
+              providerName: details.provider_name,
+              startDatetime: details.start_datetime,
+              endDatetime: details.end_datetime,
+            });
+          }
+        } catch (emailErr) {
+          console.error("Failed to send scheduled shift email:", emailErr);
+        }
+      }
 
       res.status(201).json({
         message: "Volunteer signup created successfully",

@@ -7,14 +7,35 @@ import {
   useMap,
 } from "@vis.gl/react-google-maps";
 import axios from "axios";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button, Container, Form, Modal } from "react-bootstrap";
 import "../App.css";
 import MapPinDetails from "../components/MapPinDetails";
 import { formatHours } from "../components/provider/providerHelpers";
+import { API_URL } from "../config";
+import gaCounties from "../data/gaCounties.json";
 
 const API_KEY = process.env.REACT_APP_MAP_API_KEY || "";
-const API_URL = process.env.REACT_APP_API_URL;
+
+// ---------------------------------------------------------------------------
+// Category → emoji mapping.
+// To add a new resource type: add a key/value pair here whose key matches
+// the category name exactly as it appears in the database.
+// If no entry exists for a category the old coloured Pin will be used instead.
+// ---------------------------------------------------------------------------
+const CATEGORY_EMOJI = {
+  "Arts and Culture": "🎨",
+  "Community Gathering": "🏛️",
+  Education: "📚",
+  Employment: "💼",
+  Environment: "🌿",
+  Events: "📅",
+  "Food Assistance": "🍎",
+  Housing: "🏠",
+  Legal: "⚖️",
+  "Social Advocacy": "📣",
+  Unions: "✊",
+};
 
 // Set the initial center of the map to the middle of Atlanta
 const DEFAULT_CENTER = { lat: 33.749, lng: -84.388 };
@@ -61,6 +82,206 @@ function MapUpdater({ userLocation }) {
   return null; // It doesn't render any visible UI
 }
 
+function MapPinFocusController({ focusTarget, onFocusComplete }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || !focusTarget?.pin?.position) return;
+
+    let cancelled = false;
+    const listenerRemovers = [];
+
+    const addIdleListener = (callback) => {
+      const googleEvent = window.google?.maps?.event;
+      if (googleEvent?.addListenerOnce) {
+        const listener = googleEvent.addListenerOnce(map, "idle", callback);
+        listenerRemovers.push(() => listener?.remove?.());
+        return;
+      }
+
+      const listener = map.addListener?.("idle", callback);
+      listenerRemovers.push(() => listener?.remove?.());
+    };
+
+    const finishFocus = () => {
+      if (!cancelled) {
+        onFocusComplete?.(focusTarget.pin);
+      }
+    };
+
+    addIdleListener(() => {
+      if (cancelled) return;
+
+      const targetZoom = focusTarget.zoom;
+      if (typeof targetZoom === "number" && map.getZoom?.() !== targetZoom) {
+        addIdleListener(() => {
+          if (cancelled) return;
+          finishFocus();
+        });
+        map.setZoom(targetZoom);
+        return;
+      }
+
+      finishFocus();
+    });
+
+    map.panTo(focusTarget.pin.position);
+
+    return () => {
+      cancelled = true;
+      listenerRemovers.forEach((remove) => remove());
+    };
+  }, [map, focusTarget, onFocusComplete]);
+
+  return null;
+}
+
+function normalizeCountyName(name) {
+  return (name || "")
+    .replace(/\s+county\s*$/i, "")
+    .trim()
+    .toLowerCase();
+}
+
+function parseSocialMediaLinks(value) {
+  if (!value) return [];
+
+  try {
+    const parsed = typeof value === "string" ? JSON.parse(value) : value;
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((entry, index) => {
+        const name = entry?.name?.trim() || `Link ${index + 1}`;
+        const url = entry?.url?.trim() || entry?.link?.trim() || "";
+        return url ? { name, url } : null;
+      })
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function parseLanguages(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map((language) => String(language).trim()).filter(Boolean);
+  }
+
+  return String(value)
+    .split(",")
+    .map((language) => language.trim())
+    .filter(Boolean);
+}
+
+// Ray-casting point-in-ring check for [lng, lat] coordinates
+function isPointInRing(point, ring) {
+  const [x, y] = point;
+  let inside = false;
+
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+
+    const crossesScanline = yi > y !== yj > y;
+    const xIntersection = ((xj - xi) * (y - yi)) / (yj - yi || 1e-12) + xi;
+    const intersects = crossesScanline && x < xIntersection;
+
+    if (intersects) inside = !inside;
+  }
+
+  return inside;
+}
+
+function isPointInPolygonCoordinates(point, polygonCoordinates) {
+  if (!polygonCoordinates?.length) return false;
+
+  // First ring is exterior, subsequent rings are holes
+  const [outerRing, ...holes] = polygonCoordinates;
+  if (!isPointInRing(point, outerRing)) return false;
+
+  for (const hole of holes) {
+    if (isPointInRing(point, hole)) return false;
+  }
+
+  return true;
+}
+
+function isPointInCountyFeature(point, countyFeature) {
+  const geometry = countyFeature?.geometry;
+  if (!geometry) return false;
+
+  if (geometry.type === "Polygon") {
+    return isPointInPolygonCoordinates(point, geometry.coordinates);
+  }
+
+  if (geometry.type === "MultiPolygon") {
+    return geometry.coordinates.some((polygonCoordinates) =>
+      isPointInPolygonCoordinates(point, polygonCoordinates),
+    );
+  }
+
+  return false;
+}
+
+function CountyBoundaryOverlay({ countyFeature }) {
+  const map = useMap();
+  const polygonsRef = useRef([]);
+
+  useEffect(() => {
+    polygonsRef.current.forEach((polygon) => polygon.setMap(null));
+    polygonsRef.current = [];
+
+    if (!map || !countyFeature?.geometry || !window.google?.maps) return;
+
+    const polygons = [];
+    const bounds = new window.google.maps.LatLngBounds();
+
+    const createPolygon = (rings) => {
+      const paths = rings.map((ring) =>
+        ring.map(([lng, lat]) => {
+          bounds.extend({ lat, lng });
+          return { lat, lng };
+        }),
+      );
+
+      const polygon = new window.google.maps.Polygon({
+        paths,
+        strokeColor: "#1d4ed8",
+        strokeOpacity: 0.95,
+        strokeWeight: 2,
+        fillColor: "#1d4ed8",
+        fillOpacity: 0.08,
+        clickable: false,
+        zIndex: 1,
+      });
+
+      polygon.setMap(map);
+      polygons.push(polygon);
+    };
+
+    if (countyFeature.geometry.type === "Polygon") {
+      createPolygon(countyFeature.geometry.coordinates);
+    } else if (countyFeature.geometry.type === "MultiPolygon") {
+      countyFeature.geometry.coordinates.forEach((polygonCoordinates) => {
+        createPolygon(polygonCoordinates);
+      });
+    }
+
+    polygonsRef.current = polygons;
+
+    if (!bounds.isEmpty()) {
+      map.fitBounds(bounds, 30);
+    }
+
+    return () => {
+      polygons.forEach((polygon) => polygon.setMap(null));
+    };
+  }, [map, countyFeature]);
+
+  return null;
+}
+
 function Maps() {
   // The dynamic pins loaded from the database backend
   const [mapPins, setMapPins] = useState([]);
@@ -84,6 +305,7 @@ function Maps() {
   const distanceInputRef = useRef(null);
   const addressInputRef = useRef(null);
   const modalAutocompleteRef = useRef(null);
+  const searchContainerRef = useRef(null);
 
   // Inject z-index fix so the Places dropdown appears above Bootstrap modals
   useEffect(() => {
@@ -177,6 +399,42 @@ function Maps() {
   });
   const [debouncedDistance, setDebouncedDistance] = useState(distanceInputVal);
   const [distanceErrorMsg, setDistanceErrorMsg] = useState("");
+  const [locationFilterMode, setLocationFilterMode] = useState(() => {
+    const savedMode = localStorage.getItem("userSavedLocationFilterMode");
+    return savedMode === "county" ? "county" : "distance";
+  });
+  const [selectedCountyName, setSelectedCountyName] = useState(() => {
+    return localStorage.getItem("userSavedCounty") || "";
+  });
+
+  const countyFeatures = useMemo(() => {
+    const importedData = gaCounties?.features
+      ? gaCounties
+      : gaCounties?.default;
+    return Array.isArray(importedData?.features) ? importedData.features : [];
+  }, []);
+
+  const countyNameOptions = useMemo(() => {
+    const names = countyFeatures
+      .map((feature) => feature.properties?.name)
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
+    return [...new Set(names)];
+  }, [countyFeatures]);
+
+  const countyFeatureByName = useMemo(() => {
+    const lookup = {};
+    countyFeatures.forEach((feature) => {
+      const name = feature.properties?.name;
+      if (name) lookup[normalizeCountyName(name)] = feature;
+    });
+    return lookup;
+  }, [countyFeatures]);
+
+  const selectedCountyFeature =
+    locationFilterMode === "county" && selectedCountyName
+      ? countyFeatureByName[normalizeCountyName(selectedCountyName)] || null
+      : null;
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -185,6 +443,14 @@ function Maps() {
     }, 500);
     return () => clearTimeout(timer);
   }, [distanceInputVal]);
+
+  useEffect(() => {
+    localStorage.setItem("userSavedLocationFilterMode", locationFilterMode);
+  }, [locationFilterMode]);
+
+  useEffect(() => {
+    localStorage.setItem("userSavedCounty", selectedCountyName);
+  }, [selectedCountyName]);
 
   const handleDistanceChange = (e) => {
     if (e.target.validity.badInput) {
@@ -312,6 +578,10 @@ function Maps() {
             address: `${resource.street_address_1}, ${resource.city}, ${resource.state} ${resource.zip}`,
             hours: formatHours(resource.hours) || "Hours not specified",
             description: resource.description || "No description provided.",
+            phone: resource.contact_phone || null,
+            website: resource.website || null,
+            languages: parseLanguages(resource.languages_spoken),
+            socialMedia: parseSocialMediaLinks(resource.social_media_links),
             provider_name: resource.provider_name || null,
             eligibility_requirements: resource.eligibility_requirements || null,
             image:
@@ -388,6 +658,10 @@ function Maps() {
   // The pin that is currently selected
   const [selectedPin, setSelectedPin] = useState(null);
 
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [focusTarget, setFocusTarget] = useState(null);
+
   // Whether the filters panel is expanded
   const [filtersExpanded, setFiltersExpanded] = useState(true);
 
@@ -398,11 +672,58 @@ function Maps() {
     }));
   };
 
+  const searchMatches = useMemo(() => {
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    if (!normalizedQuery) return [];
+
+    const pinsWithLabels = mapPins.map((pin) => ({
+      ...pin,
+      searchLabel: `${pin.name} - ${pin.type}`,
+    }));
+
+    return pinsWithLabels
+      .filter((pin) => pin.name?.toLowerCase().includes(normalizedQuery))
+      .sort((a, b) => {
+        const aStarts = a.name.toLowerCase().startsWith(normalizedQuery);
+        const bStarts = b.name.toLowerCase().startsWith(normalizedQuery);
+        if (aStarts !== bStarts) return aStarts ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      })
+      .slice(0, 8);
+  }, [mapPins, searchQuery]);
+
+  const handleSearchSelect = (pin) => {
+    setSearchQuery(pin.name);
+    setShowSearchDropdown(false);
+    setSelectedPin(null);
+    setFocusTarget({ pin, zoom: 14, token: Date.now() });
+  };
+
+  const handleFocusComplete = useCallback((pin) => {
+    setSelectedPin(pin);
+    setFocusTarget(null);
+  }, []);
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === "Enter" && searchMatches.length > 0) {
+      e.preventDefault();
+      handleSearchSelect(searchMatches[0]);
+    }
+  };
+
   const filteredPins = mapPins.filter((pin) => {
     // 1. Filter by category
     if (filters[pin.category] === false) return false;
 
-    // 2. Filter by distance
+    // 2. Filter by county OR distance (county mode overrides distance)
+    if (locationFilterMode === "county") {
+      if (!selectedCountyFeature) return true;
+      return isPointInCountyFeature(
+        [pin.position.lng, pin.position.lat],
+        selectedCountyFeature,
+      );
+    }
+
     const distLimit = parseFloat(debouncedDistance);
     if (!isNaN(distLimit) && distLimit > 0 && userLocation) {
       const dist = calculateDistanceInMiles(
@@ -413,136 +734,338 @@ function Maps() {
       );
       if (dist > distLimit) return false;
     }
+
     return true;
   });
+
+  useEffect(() => {
+    if (selectedPin && !mapPins.some((pin) => pin.id === selectedPin.id)) {
+      setSelectedPin(null);
+    }
+  }, [mapPins, selectedPin]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!searchContainerRef.current?.contains(event.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <Container
       fluid
       style={{ height: "calc(100vh - 80px)", padding: 0, position: "relative" }}
     >
-      {/* Filter Overlay UI */}
       <div
         style={{
           position: "absolute",
           top: "10px",
           left: "10px",
-          backgroundColor: "white",
-          padding: "clamp(10px, 3vw, 20px)",
-          borderRadius: "8px",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          right: "10px",
           zIndex: 1000,
-          width: "clamp(160px, 45vw, 260px)",
-          maxHeight: "calc(100vh - 120px)",
-          overflowY: "auto",
-          transition: "all 0.3s ease",
+          display: "flex",
+          gap: "10px",
+          alignItems: "flex-start",
+          flexWrap: "wrap",
+          pointerEvents: "none",
         }}
       >
-        {/* The filter panel */}
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <h5
-            className="mb-0"
-            style={{
-              color: "var(--gold)",
-              fontSize: "clamp(0.9rem, 3vw, 1.25rem)",
-            }}
+        {/* Filter Overlay UI */}
+        <div
+          style={{
+            position: "relative",
+            backgroundColor: "white",
+            padding: filtersExpanded
+              ? "clamp(10px, 3vw, 20px)"
+              : "clamp(6px, 2vw, 10px)",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            pointerEvents: "auto",
+            width: filtersExpanded
+              ? "clamp(160px, 45vw, 260px)"
+              : "clamp(92px, 26vw, 125px)",
+            maxHeight: "calc(100vh - 120px)",
+            overflowY: "auto",
+            transition: "all 0.3s ease",
+          }}
+        >
+          {/* The filter panel */}
+          <div
+            className={`d-flex justify-content-between align-items-center ${
+              filtersExpanded ? "mb-2" : "mb-0"
+            }`}
           >
-            Filters
-          </h5>
-          <Button
-            variant="link"
-            size="sm"
-            onClick={() => setFiltersExpanded(!filtersExpanded)}
-            style={{ padding: 0, color: "#333", textDecoration: "none" }}
-          >
-            {filtersExpanded ? "▼" : "▶"}
-          </Button>
+            <h5
+              className="mb-0"
+              style={{
+                color: "var(--gold)",
+                fontSize: "clamp(0.9rem, 3vw, 1.25rem)",
+              }}
+            >
+              Filters
+            </h5>
+            <Button
+              variant="link"
+              size="sm"
+              onClick={() => setFiltersExpanded(!filtersExpanded)}
+              style={{ padding: 0, color: "#333", textDecoration: "none" }}
+            >
+              {filtersExpanded ? "▼" : "▶"}
+            </Button>
+          </div>
+
+          {/* The filter options */}
+          {filtersExpanded && (
+            <Form style={{ fontSize: "clamp(0.75rem, 2.5vw, 1rem)" }}>
+              {Object.entries(categoryColorMap).map(([name, color]) => {
+                const emoji = CATEGORY_EMOJI[name];
+                return (
+                  <div key={name} className="d-flex align-items-center mb-2">
+                    {emoji ? (
+                      <span
+                        style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          width: "clamp(16px, 4vw, 22px)",
+                          height: "clamp(16px, 4vw, 22px)",
+                          background: color,
+                          borderRadius: "50%",
+                          marginRight: "8px",
+                          fontSize: "clamp(10px, 2.5vw, 14px)",
+                          lineHeight: 1,
+                          flexShrink: 0,
+                        }}
+                      >
+                        {emoji}
+                      </span>
+                    ) : (
+                      <span
+                        style={{
+                          display: "inline-block",
+                          width: "clamp(10px, 3vw, 14px)",
+                          height: "clamp(10px, 3vw, 14px)",
+                          backgroundColor: color,
+                          borderRadius: "50%",
+                          marginRight: "10px",
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                    <Form.Check
+                      type="checkbox"
+                      label={name}
+                      checked={filters[name] !== false}
+                      onChange={() => handleFilterChange(name)}
+                      id={`filter-${name}`}
+                      className="mb-0"
+                    />
+                  </div>
+                );
+              })}
+              <div className="mt-3 pt-2 border-top">
+                <Form.Label
+                  className="mb-2"
+                  style={{
+                    fontWeight: 600,
+                    fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
+                  }}
+                >
+                  Location Filter
+                </Form.Label>
+
+                <Form.Check
+                  type="radio"
+                  id="location-filter-distance"
+                  name="location-filter-mode"
+                  label="Distance"
+                  checked={locationFilterMode === "distance"}
+                  onChange={() => setLocationFilterMode("distance")}
+                  className="mb-1"
+                />
+                <Form.Check
+                  type="radio"
+                  id="location-filter-county"
+                  name="location-filter-mode"
+                  label="County (Georgia)"
+                  checked={locationFilterMode === "county"}
+                  onChange={() => setLocationFilterMode("county")}
+                  className="mb-2"
+                />
+
+                {locationFilterMode === "distance" ? (
+                  <>
+                    <div className="d-flex align-items-center mt-2">
+                      <Form.Label
+                        className="mb-0 me-2"
+                        style={{
+                          fontWeight: 500,
+                          fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
+                        }}
+                      >
+                        Distance
+                      </Form.Label>
+                      <Form.Control
+                        type="number"
+                        step="any"
+                        min="1"
+                        style={{
+                          width: "clamp(55px, 15vw, 80px)",
+                          padding: "0.25rem 0.5rem",
+                          fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
+                        }}
+                        className="me-2 text-center"
+                        value={distanceInputVal}
+                        onChange={handleDistanceChange}
+                        ref={distanceInputRef}
+                        isInvalid={!!distanceErrorMsg}
+                        onClick={() => {
+                          if (!userLocation) {
+                            setShowAddressModal(true);
+                          }
+                        }}
+                      />
+                      <span
+                        style={{
+                          fontWeight: 500,
+                          fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
+                        }}
+                      >
+                        miles
+                      </span>
+                    </div>
+
+                    {distanceErrorMsg && (
+                      <div
+                        className="text-danger mt-1"
+                        style={{ fontSize: "0.85rem" }}
+                      >
+                        {distanceErrorMsg}
+                      </div>
+                    )}
+
+                    {!gpsActive && (
+                      <div className="mt-3">
+                        <Button
+                          variant="outline-secondary"
+                          size="sm"
+                          className="w-100"
+                          onClick={() => setShowAddressModal(true)}
+                        >
+                          Set my location
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Form.Select
+                      className="mt-2"
+                      size="sm"
+                      value={selectedCountyName}
+                      onChange={(e) => setSelectedCountyName(e.target.value)}
+                    >
+                      <option value="">Select a county</option>
+                      {countyNameOptions.map((countyName) => (
+                        <option key={countyName} value={countyName}>
+                          {countyName}
+                        </option>
+                      ))}
+                    </Form.Select>
+                    <small className="text-muted d-block mt-1">
+                      Distance is ignored while county filtering is active.
+                    </small>
+                  </>
+                )}
+              </div>
+            </Form>
+          )}
         </div>
 
-        {/* The filter options */}
-        {filtersExpanded && (
-          <Form style={{ fontSize: "clamp(0.75rem, 2.5vw, 1rem)" }}>
-            {Object.entries(categoryColorMap).map(([name, color]) => (
-              <div key={name} className="d-flex align-items-center mb-2">
-                <span
+        <div
+          ref={searchContainerRef}
+          style={{
+            position: "relative",
+            backgroundColor: "white",
+            borderRadius: "8px",
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+            padding: "6px 8px",
+            width: "min(320px, calc(100vw - 40px))",
+            minHeight: "44px",
+            display: "flex",
+            alignItems: "center",
+            pointerEvents: "auto",
+          }}
+        >
+          <Form.Control
+            type="text"
+            placeholder="Search resources or events"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setShowSearchDropdown(true);
+            }}
+            onFocus={() => setShowSearchDropdown(true)}
+            onKeyDown={handleSearchKeyDown}
+            autoComplete="off"
+            size="sm"
+            style={{ minHeight: "30px", fontSize: "0.9rem" }}
+          />
+          {showSearchDropdown && searchQuery.trim() && (
+            <div
+              style={{
+                position: "absolute",
+                top: "calc(100% + 6px)",
+                left: 0,
+                right: 0,
+                marginTop: "8px",
+                border: "1px solid #ddd",
+                borderRadius: "6px",
+                maxHeight: "240px",
+                overflowY: "auto",
+                backgroundColor: "#fff",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.12)",
+              }}
+            >
+              {searchMatches.length > 0 ? (
+                searchMatches.map((pin) => (
+                  <button
+                    key={`search-${pin.id}`}
+                    type="button"
+                    onClick={() => handleSearchSelect(pin)}
+                    style={{
+                      display: "block",
+                      width: "100%",
+                      textAlign: "left",
+                      padding: "8px 10px",
+                      border: "none",
+                      borderBottom: "1px solid #eee",
+                      background: "transparent",
+                      fontSize: "0.95rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {pin.searchLabel}
+                  </button>
+                ))
+              ) : (
+                <div
                   style={{
-                    display: "inline-block",
-                    width: "clamp(10px, 3vw, 14px)",
-                    height: "clamp(10px, 3vw, 14px)",
-                    backgroundColor: color,
-                    borderRadius: "50%",
-                    marginRight: "10px",
+                    padding: "10px",
+                    color: "#666",
+                    fontSize: "0.9rem",
                   }}
-                ></span>
-                <Form.Check
-                  type="checkbox"
-                  label={name}
-                  checked={filters[name] !== false}
-                  onChange={() => handleFilterChange(name)}
-                  id={`filter-${name}`}
-                  className="mb-0"
-                />
-              </div>
-            ))}
-            <div className="d-flex align-items-center mt-3">
-              <Form.Label
-                className="mb-0 me-2"
-                style={{
-                  fontWeight: 500,
-                  fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
-                }}
-              >
-                Distance
-              </Form.Label>
-              <Form.Control
-                type="number"
-                step="any"
-                min="1"
-                style={{
-                  width: "clamp(55px, 15vw, 80px)",
-                  padding: "0.25rem 0.5rem",
-                  fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
-                }}
-                className="me-2 text-center"
-                value={distanceInputVal}
-                onChange={handleDistanceChange}
-                ref={distanceInputRef}
-                isInvalid={!!distanceErrorMsg}
-                onClick={() => {
-                  if (!userLocation) {
-                    setShowAddressModal(true);
-                  }
-                }}
-              />
-              <span
-                style={{
-                  fontWeight: 500,
-                  fontSize: "clamp(0.75rem, 2.5vw, 1rem)",
-                }}
-              >
-                miles
-              </span>
-            </div>
-            {distanceErrorMsg && (
-              <div className="text-danger mt-1" style={{ fontSize: "0.85rem" }}>
-                {distanceErrorMsg}
-              </div>
-            )}
-
-            {!gpsActive && (
-              <div className="mt-3">
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  className="w-100"
-                  onClick={() => setShowAddressModal(true)}
                 >
-                  Set my location
-                </Button>
-              </div>
-            )}
-          </Form>
-        )}
+                  No matching resources or events found.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Address Prompt Modal */}
@@ -623,33 +1146,135 @@ function Maps() {
 
       <APIProvider apiKey={API_KEY}>
         <MapUpdater userLocation={userLocation} />
+        <MapPinFocusController
+          focusTarget={focusTarget}
+          onFocusComplete={handleFocusComplete}
+        />
         <Map
           defaultCenter={DEFAULT_CENTER}
           defaultZoom={10}
           gestureHandling={"greedy"}
+          mapTypeControl={false}
+          fullscreenControl={false}
           mapId={process.env.REACT_APP_MAP_ID || "DEMO_MAP_ID"}
         >
+          <CountyBoundaryOverlay countyFeature={selectedCountyFeature} />
+
           {/* The pins to display */}
-          {filteredPins.map((pin) => (
+          {filteredPins.map((pin) => {
+            const emoji = CATEGORY_EMOJI[pin.category];
+            return (
+              <AdvancedMarker
+                key={pin.id}
+                position={pin.position}
+                title={pin.name}
+                onClick={() => setSelectedPin(pin)}
+              >
+                {emoji ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: pin.color,
+                        borderRadius: "50%",
+                        width: "34px",
+                        height: "34px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        border: "2px solid white",
+                        boxShadow: "0 2px 6px rgba(0,0,0,0.35)",
+                        fontSize: "18px",
+                        lineHeight: 1,
+                        userSelect: "none",
+                      }}
+                    >
+                      {emoji}
+                    </div>
+                    <div
+                      style={{
+                        width: 0,
+                        height: 0,
+                        borderLeft: "5px solid transparent",
+                        borderRight: "5px solid transparent",
+                        borderTop: `7px solid ${pin.color}`,
+                        marginTop: "-1px",
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <Pin
+                    background={pin.color}
+                    borderColor={"#333"}
+                    glyphColor={"#333"}
+                  />
+                )}
+              </AdvancedMarker>
+            );
+          })}
+
+          {/* User location marker */}
+          {userLocation && (
             <AdvancedMarker
-              key={pin.id}
-              position={pin.position}
-              title={pin.name}
-              onClick={() => setSelectedPin(pin)}
+              position={userLocation}
+              title="My current location!"
             >
-              <Pin
-                background={pin.color}
-                borderColor={"#333"}
-                glyphColor={"#333"}
-              />
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                }}
+              >
+                {/* Person icon */}
+                <div
+                  style={{
+                    background: "#1d4ed8",
+                    borderRadius: "50%",
+                    width: "32px",
+                    height: "32px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    border: "2px solid white",
+                    boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+                    fontSize: "18px",
+                    lineHeight: 1,
+                    userSelect: "none",
+                  }}
+                  title="Your location"
+                >
+                  🧍
+                </div>
+                {/* Pointer stem */}
+                <div
+                  style={{
+                    width: 0,
+                    height: 0,
+                    borderLeft: "5px solid transparent",
+                    borderRight: "5px solid transparent",
+                    borderTop: "7px solid #1d4ed8",
+                    marginTop: "-1px",
+                  }}
+                />
+              </div>
             </AdvancedMarker>
-          ))}
+          )}
 
           {/* The info window to display when a pin is selected */}
           {selectedPin && (
             <InfoWindow
               position={selectedPin.position}
-              onCloseClick={() => setSelectedPin(null)}
+              onCloseClick={() => {
+                setSelectedPin(null);
+                setFocusTarget(null);
+              }}
               style={{ padding: 0 }}
             >
               <MapPinDetails details={selectedPin} />

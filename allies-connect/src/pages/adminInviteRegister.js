@@ -21,7 +21,7 @@ import {
   isValidUsernameFormat,
 } from "../utils/validation";
 
-function InviteRegister() {
+function AdminInviteRegister() {
   const { token } = useParams();
   const navigate = useNavigate();
 
@@ -40,31 +40,24 @@ function InviteRegister() {
     zip: "",
   });
 
-  // Fetch invite details on mount
   const fetchInvite = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${API_URL}/api/organizations/invite/${token}`,
-      );
-
+      const response = await fetch(`${API_URL}/api/admin/invite/${token}`);
       if (!response.ok) {
         setInviteError(
-          "This invitation link is invalid or has expired. Please contact the organization for a new invite.",
+          "This admin invitation link is invalid or has expired. Please request a new invite.",
         );
         return;
       }
 
       const data = await response.json();
       setInviteData(data);
-
-      // Pre-fill email and suggested username from invite
       setFormData((prev) => ({
         ...prev,
         email: data.email || "",
-        username: data.username_suggestion || "",
       }));
     } catch (err) {
-      console.error("Error fetching invite:", err);
+      console.error("Error fetching admin invite:", err);
       setInviteError("Unable to load invitation. Please try again later.");
     } finally {
       setLoadingInvite(false);
@@ -75,7 +68,6 @@ function InviteRegister() {
     fetchInvite();
   }, [fetchInvite]);
 
-  // Handle form changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "phone") {
@@ -87,7 +79,6 @@ function InviteRegister() {
     }
   };
 
-  // Form validity
   const isFormValid =
     formData.username &&
     isValidUsernameFormat(formData.username) &&
@@ -106,29 +97,33 @@ function InviteRegister() {
   const getFormErrors = () => {
     const errors = [];
     if (!formData.username) errors.push("Username is required");
-    else if (!isValidUsernameFormat(formData.username))
+    else if (!isValidUsernameFormat(formData.username)) {
       errors.push(
         "Username must be 3-50 characters with only letters, numbers, underscores, and hyphens",
       );
+    }
     if (!formData.email) errors.push("Email is required");
-    else if (!isValidEmailFormat(formData.email))
+    else if (!isValidEmailFormat(formData.email)) {
       errors.push("Email must be in a valid format (e.g., user@example.com)");
+    }
     if (!formData.password) errors.push("Password is required");
-    else if (!isValidPasswordFormat(formData.password))
+    else if (!isValidPasswordFormat(formData.password)) {
       errors.push("Password does not meet requirements");
+    }
     if (!formData.confirmPassword) errors.push("Confirm Password is required");
-    else if (formData.password !== formData.confirmPassword)
+    else if (formData.password !== formData.confirmPassword) {
       errors.push("Passwords do not match");
+    }
     if (!formData.firstName) errors.push("First Name is required");
     if (!formData.lastName) errors.push("Last Name is required");
     if (!formData.phone) errors.push("Phone Number is required");
-    else if (!isValidPhoneFormat(formData.phone))
+    else if (!isValidPhoneFormat(formData.phone)) {
       errors.push("Phone number must be a valid 10-digit format");
+    }
     if (!formData.zip) errors.push("ZIP Code is required");
     return errors;
   };
 
-  // Handle registration
   const handleRegister = async (e) => {
     e.preventDefault();
 
@@ -139,23 +134,20 @@ function InviteRegister() {
     }
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/organizations/invite-register`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            token,
-            username: formData.username,
-            email: formData.email,
-            password: formData.password,
-            first_name: formData.firstName,
-            last_name: formData.lastName,
-            phone_number: formData.phone.replace(/\D/g, ""),
-            zip_code: formData.zip,
-          }),
-        },
-      );
+      const response = await fetch(`${API_URL}/api/admin/invite-register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,
+          username: formData.username,
+          email: formData.email,
+          password: formData.password,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone_number: formData.phone.replace(/\D/g, ""),
+          zip_code: formData.zip,
+        }),
+      });
 
       const data = await response.json();
 
@@ -164,15 +156,14 @@ function InviteRegister() {
         return;
       }
 
-      alert("Account created successfully! You can now log in.");
+      alert("Admin account created successfully! You can now log in.");
       navigate("/login");
     } catch (err) {
-      console.error("Error registering via invite:", err);
+      console.error("Error registering admin via invite:", err);
       alert("An error occurred during registration.");
     }
   };
 
-  // Loading state
   if (loadingInvite) {
     return (
       <Container className="register-container">
@@ -184,7 +175,6 @@ function InviteRegister() {
     );
   }
 
-  // Error state
   if (inviteError) {
     return (
       <Container className="register-container">
@@ -204,27 +194,18 @@ function InviteRegister() {
         <h1>Welcome to Allies Connect</h1>
       </div>
       <div className="text-container mb-5">
-        <h2>{inviteData?.organization_name}</h2>
+        <h2>Admin Account Invitation</h2>
         <p>
-          You&apos;ve been invited to join this organization. Fill out the form
-          below to create your account.
+          You&apos;ve been invited to create an admin account. Fill out the form
+          below to continue.
         </p>
       </div>
+
       <div className="feature-box">
         <div className="text-container mb-4">
-          <h3>Create Your Account</h3>
+          <h3>Create Your Admin Account</h3>
         </div>
         <Form>
-          {inviteData?.ein && (
-            <Row className="text-start mb-3">
-              <Col md={3} className="d-flex align-items-center">
-                <h5>EIN:</h5>
-              </Col>
-              <Col className="d-flex align-items-center">
-                <Form.Control value={inviteData.ein} readOnly />
-              </Col>
-            </Row>
-          )}
           <Row className="text-start mb-3">
             <Col md={3} className="d-flex align-items-center">
               <h5>
@@ -252,6 +233,7 @@ function InviteRegister() {
               </Form.Group>
             </Col>
           </Row>
+
           <Row className="text-start mb-3">
             <Col md={3} className="d-flex align-items-center">
               <h5>
@@ -280,6 +262,7 @@ function InviteRegister() {
               </Form.Group>
             </Col>
           </Row>
+
           <Row className="text-start mb-3">
             <Col md={3} className="d-flex align-items-center">
               <h5>
@@ -306,6 +289,7 @@ function InviteRegister() {
               </Form.Group>
             </Col>
           </Row>
+
           <Row className="text-start mb-3">
             <Col md={3} className="d-flex align-items-center">
               <h5>
@@ -331,6 +315,7 @@ function InviteRegister() {
               </Form.Group>
             </Col>
           </Row>
+
           <Row className="text-start mb-3">
             <Col md={3} className="d-flex align-items-center">
               <h5>
@@ -348,6 +333,7 @@ function InviteRegister() {
               />
             </Col>
           </Row>
+
           <Row className="text-start mb-3">
             <Col md={3} className="d-flex align-items-center">
               <h5>
@@ -365,6 +351,7 @@ function InviteRegister() {
               />
             </Col>
           </Row>
+
           <Row className="text-start mb-3">
             <Col md={3} className="d-flex align-items-center">
               <h5>
@@ -375,12 +362,11 @@ function InviteRegister() {
               <Form.Group className="w-100">
                 <Form.Control
                   name="phone"
-                  type="tel"
-                  placeholder="(XXX) XXX-XXXX"
+                  type="text"
+                  placeholder="(###) ###-####"
                   value={formData.phone}
                   onChange={handleChange}
                   required
-                  maxLength="14"
                   isInvalid={
                     formData.phone && !isValidPhoneFormat(formData.phone)
                   }
@@ -391,7 +377,8 @@ function InviteRegister() {
               </Form.Group>
             </Col>
           </Row>
-          <Row className="text-start mb-3">
+
+          <Row className="text-start mb-4">
             <Col md={3} className="d-flex align-items-center">
               <h5>
                 ZIP Code: <span className="text-danger">*</span>
@@ -400,66 +387,29 @@ function InviteRegister() {
             <Col className="d-flex align-items-center">
               <Form.Control
                 name="zip"
-                type="tel"
-                placeholder="XXXXX"
+                type="text"
+                placeholder="Enter ZIP code"
                 value={formData.zip}
                 onChange={handleChange}
                 required
-                maxLength="5"
               />
             </Col>
           </Row>
 
-          {/* EIN field — read-only, pre-filled from the org */}
-          <div
-            style={{
-              border: "2px solid #ccc",
-              borderRadius: "10px",
-              padding: "20px",
-              marginBottom: "1rem",
-              backgroundColor: "#f9f9f9",
-            }}
-          >
-            <h5 className="text-center mb-3" style={{ fontWeight: "bold" }}>
-              Organization EIN
-            </h5>
-            <Row className="text-start mb-2">
-              <Col md={3} className="d-flex align-items-center">
-                <h5>EIN Number:</h5>
-              </Col>
-              <Col className="d-flex align-items-center">
-                <Form.Control
-                  type="text"
-                  value={inviteData?.ein || ""}
-                  disabled
-                  readOnly
-                  style={{ backgroundColor: "#e9ecef" }}
-                />
-              </Col>
-            </Row>
-            <Alert variant="info" className="mt-2 mb-0">
-              <small>
-                This EIN is pre-filled from your organization and cannot be
-                changed.
-              </small>
-            </Alert>
+          <div className="text-center mt-4">
+            <Button
+              variant="primary"
+              className="btn-green"
+              disabled={!isFormValid}
+              onClick={handleRegister}
+            >
+              Create Admin Account
+            </Button>
           </div>
         </Form>
-        <Row className="justify-content-end">
-          <Col md={4}>
-            <Button
-              className="btn-gold"
-              onClick={handleRegister}
-              disabled={!isFormValid}
-              style={{ opacity: isFormValid ? 1 : 0.5 }}
-            >
-              Register
-            </Button>
-          </Col>
-        </Row>
       </div>
     </Container>
   );
 }
 
-export default InviteRegister;
+export default AdminInviteRegister;

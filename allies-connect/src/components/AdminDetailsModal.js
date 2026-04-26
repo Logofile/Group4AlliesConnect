@@ -2,13 +2,8 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import { Button, Col, Modal, Row } from "react-bootstrap";
 import "../App.css";
-
-const API_URL = process.env.REACT_APP_API_URL;
-
-const getAuthHeaders = () => {
-  const user = JSON.parse(localStorage.getItem("user"));
-  return { "x-user-id": user?.user_id };
-};
+import { API_URL } from "../config";
+import { getAuthHeaders } from "../utils/auth";
 
 function EditableField({
   label,
@@ -163,7 +158,11 @@ function EditAccountsContent({ data, onSave }) {
       />
       <Row className="justify-content-end mt-3">
         <Col md={4}>
-          <Button variant="danger" className="w-100 mb-2" onClick={handleDelete}>
+          <Button
+            variant="danger"
+            className="w-100 mb-2"
+            onClick={handleDelete}
+          >
             Delete Account
           </Button>
           <Button className="btn-gold w-100" onClick={handleSave}>
@@ -185,7 +184,11 @@ function ManageResourcesContent({ data, onSave }) {
     // Parse hours for editing
     let h = data?.hours;
     if (typeof h === "string") {
-      try { h = JSON.parse(h); } catch { h = {}; }
+      try {
+        h = JSON.parse(h);
+      } catch {
+        h = {};
+      }
     }
     setHours(h || {});
   }, [data]);
@@ -195,7 +198,11 @@ function ManageResourcesContent({ data, onSave }) {
     if (field === "hours") {
       let h = value;
       if (typeof h === "string") {
-        try { h = JSON.parse(h); } catch { h = {}; }
+        try {
+          h = JSON.parse(h);
+        } catch {
+          h = {};
+        }
       }
       setHours(h || {});
     }
@@ -211,7 +218,10 @@ function ManageResourcesContent({ data, onSave }) {
   };
   const handleClosedToggle = (day) => {
     setHours((prev) => {
-      const updated = { ...prev, [day]: { ...prev[day], closed: !prev[day]?.closed } };
+      const updated = {
+        ...prev,
+        [day]: { ...prev[day], closed: !prev[day]?.closed },
+      };
       setForm((f) => ({ ...f, hours: updated }));
       return updated;
     });
@@ -278,21 +288,33 @@ function ManageResourcesContent({ data, onSave }) {
           </thead>
           <tbody>
             {[
-              "monday","tuesday","wednesday","thursday","friday","saturday","sunday"
+              "monday",
+              "tuesday",
+              "wednesday",
+              "thursday",
+              "friday",
+              "saturday",
+              "sunday",
             ].map((day) => {
               const d = hours?.[day] || {};
               return (
                 <tr key={day}>
-                  <td>{day.charAt(0).toUpperCase() + day.slice(1,3)}</td>
+                  <td>{day.charAt(0).toUpperCase() + day.slice(1, 3)}</td>
                   <td>
-                    <input type="checkbox" checked={!!d.closed} onChange={() => handleClosedToggle(day)} />
+                    <input
+                      type="checkbox"
+                      checked={!!d.closed}
+                      onChange={() => handleClosedToggle(day)}
+                    />
                   </td>
                   <td>
                     <input
                       type="time"
                       value={d.open || ""}
                       disabled={!!d.closed}
-                      onChange={e => handleHoursChange(day, "open", e.target.value)}
+                      onChange={(e) =>
+                        handleHoursChange(day, "open", e.target.value)
+                      }
                     />
                   </td>
                   <td>
@@ -300,7 +322,9 @@ function ManageResourcesContent({ data, onSave }) {
                       type="time"
                       value={d.close || ""}
                       disabled={!!d.closed}
-                      onChange={e => handleHoursChange(day, "close", e.target.value)}
+                      onChange={(e) =>
+                        handleHoursChange(day, "close", e.target.value)
+                      }
                     />
                   </td>
                 </tr>

@@ -79,6 +79,52 @@ function parseHours(hours) {
   }
 }
 
+async function resolveLocationId(queryable, address) {
+  const { street_address, city, state, zip, latitude, longitude } = address;
+
+  let coords = null;
+  if (latitude != null && longitude != null) {
+    coords = { lat: Number(latitude), lng: Number(longitude) };
+  } else {
+    coords = await geocodeAddress({
+      street: street_address,
+      city,
+      state,
+      zip,
+    });
+  }
+
+  let locationId;
+  if (coords?.lat != null && coords?.lng != null) {
+    const [existing] = await queryable.query(
+      `SELECT location_id FROM Location WHERE latitude = ? AND longitude = ?`,
+      [coords.lat, coords.lng],
+    );
+
+    if (existing.length > 0) {
+      locationId = existing[0].location_id;
+    }
+  }
+
+  if (!locationId) {
+    const [locResult] = await queryable.query(
+      `INSERT INTO Location (street_address_1, city, state, zip, latitude, longitude)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        street_address,
+        city,
+        state,
+        zip,
+        coords?.lat || null,
+        coords?.lng || null,
+      ],
+    );
+    locationId = locResult.insertId;
+  }
+
+  return locationId;
+}
+
 module.exports = function (app, pool) {
   // GET /api/resources
   // Optional filters: category, zip
@@ -104,6 +150,7 @@ module.exports = function (app, pool) {
           r.accessibility,
           r.social_media_links,
           s.name AS provider_name,
+          s.website,
           c.name AS category_name,
           l.street_address_1,
           l.street_address_2,
@@ -169,6 +216,7 @@ module.exports = function (app, pool) {
           r.accessibility,
           r.social_media_links,
           s.name AS provider_name,
+          s.website,
           c.name AS category_name,
           l.street_address_1,
           l.street_address_2,
@@ -274,49 +322,14 @@ module.exports = function (app, pool) {
 
         await conn.beginTransaction();
 
-        // Use frontend-provided coordinates if available, otherwise fall back
-        // to server-side geocoding
-        let coords = null;
-        if (latitude != null && longitude != null) {
-          coords = { lat: Number(latitude), lng: Number(longitude) };
-        } else {
-          coords = await geocodeAddress({
-            street: street_address,
-            city,
-            state,
-            zip,
-          });
-        }
-
-        // Reuse existing location if same coordinates exist
-        let locationId;
-        if (coords?.lat != null && coords?.lng != null) {
-          const [existing] = await conn.query(
-            `SELECT location_id FROM Location WHERE latitude = ? AND longitude = ?`,
-            [coords.lat, coords.lng],
-          );
-
-          if (existing.length > 0) {
-            locationId = existing[0].location_id;
-          }
-        }
-
-        // Insert new location if needed
-        if (!locationId) {
-          const [locResult] = await conn.query(
-            `INSERT INTO Location (street_address_1, city, state, zip, latitude, longitude)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-            [
-              street_address,
-              city,
-              state,
-              zip,
-              coords?.lat || null,
-              coords?.lng || null,
-            ],
-          );
-          locationId = locResult.insertId;
-        }
+        const locationId = await resolveLocationId(conn, {
+          street_address,
+          city,
+          state,
+          zip,
+          latitude,
+          longitude,
+        });
 
         // Use first category_id for now
         const categoryId = category_ids[0];
@@ -393,6 +406,12 @@ module.exports = function (app, pool) {
         const {
           category_id,
           location_id,
+          street_address,
+          city,
+          state,
+          zip,
+          latitude,
+          longitude,
           name,
           description,
           hours,
@@ -404,7 +423,22 @@ module.exports = function (app, pool) {
           languages_spoken,
           accessibility,
           social_media_links,
+          website,
         } = req.body;
+
+        const hasAnyAddressField = [street_address, city, state, zip].some(
+          (value) => value !== undefined,
+        );
+        const hasAllAddressFields = [street_address, city, state, zip].every(
+          (value) => Boolean(value),
+        );
+
+        if (hasAnyAddressField && !hasAllAddressFields) {
+          return res.status(400).json({
+            error:
+              "Street address, city, state, and zip are all required when updating a resource location.",
+          });
+        }
 
         // Validate and normalize hours if provided
         let hoursJson = null;
@@ -416,6 +450,18 @@ module.exports = function (app, pool) {
               .json({ error: `Invalid hours: ${hoursResult.error}` });
           }
           hoursJson = hoursResult.value;
+        }
+
+        let resolvedLocationId = location_id;
+        if (hasAllAddressFields) {
+          resolvedLocationId = await resolveLocationId(pool.promise(), {
+            street_address,
+            city,
+            state,
+            zip,
+            latitude,
+            longitude,
+          });
         }
 
         const query = `
@@ -441,7 +487,7 @@ module.exports = function (app, pool) {
           .promise()
           .query(query, [
             category_id,
-            location_id,
+            resolvedLocationId,
             name,
             description || null,
             hoursJson,
@@ -455,6 +501,16 @@ module.exports = function (app, pool) {
             social_media_links || null,
             resourceId,
           ]);
+
+        if (website !== undefined) {
+          await pool.promise().query(
+            `UPDATE ServiceProvider sp
+             JOIN Resource r ON r.provider_id = sp.provider_id
+             SET sp.website = ?
+             WHERE r.resource_id = ?`,
+            [website || null, resourceId],
+          );
+        }
 
         await logAudit(pool, 1, "UPDATE_RESOURCE", "Resource", resourceId);
 

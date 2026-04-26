@@ -11,10 +11,22 @@ import {
   Tabs,
 } from "react-bootstrap";
 import "../App.css";
-
-const API_URL = process.env.REACT_APP_API_URL;
+import { API_URL } from "../config";
+import {
+  formatEIN,
+  formatPhone,
+  formatZip,
+  getPasswordErrors,
+  hasNineDigits,
+  isValidEINFormat,
+  isValidEmailFormat,
+  isValidPasswordFormat,
+  isValidPhoneFormat,
+  isValidUsernameFormat,
+} from "../utils/validation";
 
 function Register() {
+  const user = JSON.parse(localStorage.getItem("user"));
   // Volunteer form state
   const [volFormData, setVolFormData] = useState({
     username: "",
@@ -40,91 +52,6 @@ function Register() {
     zip: "",
     ein: "",
   });
-
-  // Validation functions
-  const isValidEmailFormat = (email) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
-  };
-
-  const isValidPhoneFormat = (phone) => {
-    const phoneRegex = /^\d{10}$/;
-    return phoneRegex.test(phone.replace(/\D/g, ""));
-  };
-
-  const isValidPasswordFormat = (password) => {
-    // Must be 7 characters or longer, have at least one capital letter, one special character, and no spaces
-    const hasMinLength = password.length > 6;
-    const hasCapitalLetter = /[A-Z]/.test(password);
-    const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`]/.test(password);
-    const hasNoSpaces = !/\s/.test(password);
-    return hasMinLength && hasCapitalLetter && hasSpecialChar && hasNoSpaces;
-  };
-
-  const getPasswordErrors = (password) => {
-    const errors = [];
-    if (password.length <= 6) errors.push("Must be 7 characters or longer");
-    if (!/[A-Z]/.test(password))
-      errors.push("Must include at least one capital letter");
-    if (!/[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`]/.test(password))
-      errors.push(
-        "Must include at least one special character (!@#$%^&*()_+-=[]{}|;:',.<>?/~`)",
-      );
-    if (/\s/.test(password)) errors.push("Cannot contain spaces");
-    return errors;
-  };
-
-  const isValidUsernameFormat = (username) => {
-    // Username must be 3-50 characters, contain only letters, numbers, underscores, and hyphens, and no spaces
-    const hasValidLength = username.length >= 3 && username.length <= 50;
-    const hasValidChars = /^[a-zA-Z0-9_-]+$/.test(username);
-    const hasNoSpaces = !/\s/.test(username);
-    return hasValidLength && hasValidChars && hasNoSpaces;
-  };
-
-  const isValidEINFormat = (ein) => {
-    // EIN must be in format XX-XXXXXXX (9 digits with a dash)
-    const einRegex = /^\d{2}-\d{7}$/;
-    return einRegex.test(ein);
-  };
-
-  const hasNineDigits = (ein) => {
-    // Check if EIN has exactly 9 digits (ignoring formatting)
-    const digits = ein.replace(/\D/g, "");
-    return digits.length === 9;
-  };
-
-  const formatEIN = (value) => {
-    // Remove non-digits
-    const digits = value.replace(/\D/g, "");
-    // Format to XX-XXXXXXX pattern
-    if (digits.length <= 2) {
-      return digits;
-    } else if (digits.length <= 9) {
-      return digits.slice(0, 2) + "-" + digits.slice(2);
-    }
-    return digits.slice(0, 2) + "-" + digits.slice(2, 9);
-  };
-
-  const formatPhone = (value) => {
-    // Remove non-digits
-    const digits = value.replace(/\D/g, "");
-    // Format to (XXX) XXX-XXXX pattern
-    if (digits.length <= 3) {
-      return digits;
-    } else if (digits.length <= 6) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-    } else if (digits.length <= 10) {
-      return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-    }
-    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
-  };
-
-  const formatZip = (value) => {
-    // Remove non-digits and limit to 5
-    const digits = value.replace(/\D/g, "");
-    return digits.slice(0, 5);
-  };
 
   // EIN verification state
   const [einVerified, setEinVerified] = useState(false);
@@ -449,6 +376,16 @@ function Register() {
       alert("An error occurred during registration");
     }
   };
+
+  if (user) {
+    return (
+      <Container className="login-container">
+        <div className="text-container mb-5">
+          <h1>You are already logged in.</h1>
+        </div>
+      </Container>
+    );
+  }
 
   return (
     <Container className="register-container">

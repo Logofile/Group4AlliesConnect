@@ -80,6 +80,51 @@
   color: var(--gold) !important;
 }
 
+.outline-warning {
+  background-color: white !important;
+  color: var(--gold) !important;
+  border: 2px solid var(--gold) !important;
+  border-radius: 8px !important;
+}
+
+.outline-warning:hover,
+.outline-warning:focus,
+.outline-warning:active {
+  background-color: whitesmoke !important;
+  color: var(--gold) !important;
+  border-color: var(--gold) !important;
+}
+
+.btn-secondary,
+.btn-outline-secondary {
+  background-color: white !important;
+  color: var(--gold) !important;
+  font-size: 1.1rem;
+  border: 2px solid var(--gold) !important;
+  border-radius: 4px;
+}
+
+.btn-secondary:hover,
+.btn-secondary:focus,
+.btn-secondary:active,
+.btn-outline-secondary:hover,
+.btn-outline-secondary:focus,
+.btn-outline-secondary:active {
+  background-color: whitesmoke !important;
+  color: var(--gold) !important;
+  border-color: var(--gold) !important;
+}
+
+.btn-secondary:disabled,
+.btn-secondary.disabled,
+.btn-outline-secondary:disabled,
+.btn-outline-secondary.disabled {
+  background-color: #f8f8f8 !important;
+  color: var(--gold) !important;
+  border-color: var(--gold) !important;
+  opacity: 0.65;
+}
+
 .btn-green {
   background-color: #28a745 !important;
   border: solid 2px #28a745 !important;
@@ -161,4 +206,46 @@
 
 .modal-half .modal-dialog {
   max-width: 50%;
+}
+
+/* Modal button fallback theme (does not override explicit button class styles) */
+:where(.modal) :where(button:not(.btn-close)) {
+  background-color: white;
+  color: var(--gold);
+  border: 2px solid var(--gold);
+  border-radius: 8px;
+}
+
+:where(.modal) :where(button:not(.btn-close)):where(:hover, :focus, :active) {
+  background-color: whitesmoke;
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+:where(.modal) :where(button:not(.btn-close)):where(:disabled, .disabled) {
+  background-color: #f8f8f8;
+  color: var(--gold);
+  border-color: var(--gold);
+  opacity: 0.65;
+}
+
+/* Keep modal tables contained on mobile */
+@media (max-width: 768px) {
+  .modal .modal-dialog,
+  .modal-wide .modal-dialog,
+  .modal-half .modal-dialog {
+    max-width: calc(100vw - 1rem) !important;
+    margin: 0.5rem auto !important;
+  }
+
+  .modal .modal-body {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal .modal-body table,
+  .modal .modal-body .table {
+    width: max-content;
+    min-width: 100%;
+  }
 }

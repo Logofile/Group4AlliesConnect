@@ -1,6 +1,5 @@
 import { useState } from "react";
-
-export const API_URL = process.env.REACT_APP_API_URL;
+export { API_URL } from "../../config";
 
 // Generate time options in 30-minute increments (12:00 AM to 11:30 PM)
 export const TIME_OPTIONS = (() => {
