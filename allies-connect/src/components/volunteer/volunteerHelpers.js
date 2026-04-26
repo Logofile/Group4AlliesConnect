@@ -1,6 +1,5 @@
 import { useState } from "react";
-
-export const API_URL = process.env.REACT_APP_API_URL;
+export { API_URL } from "../../config";
 
 export function useTableDataProcessing(data, searchField) {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });

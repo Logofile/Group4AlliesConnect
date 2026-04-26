@@ -2,8 +2,7 @@ import dayjs from "dayjs";
 import { useEffect, useState } from "react";
 import { Alert, Badge, Button, Modal, Spinner, Table } from "react-bootstrap";
 import "../App.css";
-
-const API_URL = process.env.REACT_APP_API_URL;
+import { API_URL } from "../config";
 
 function EventDetailsModal({ show, onHide, event }) {
   const user = JSON.parse(localStorage.getItem("user"));

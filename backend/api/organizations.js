@@ -1,44 +1,16 @@
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
-const saltRounds = 10;
 const { requireRole } = require("../middleware/permissions");
 const { rateLimit } = require("../middleware/rateLimit");
-
-// Validate phone number format (10 digits)
-const isValidPhoneFormat = (phone) => {
-  const phoneRegex = /^\d{10}$/;
-  return phoneRegex.test(phone.replace(/\D/g, ""));
-};
-
-// Validate email format
-const isValidEmailFormat = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
-// Validate password format (more than 6 characters, at least one capital letter, at least one special character, no spaces)
-const isValidPasswordFormat = (password) => {
-  const hasMinLength = password.length > 6;
-  const hasCapitalLetter = /[A-Z]/.test(password);
-  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`]/.test(password);
-  const hasNoSpaces = !/\s/.test(password);
-  return hasMinLength && hasCapitalLetter && hasSpecialChar && hasNoSpaces;
-};
-
-// Validate username format (3-50 characters, letters/numbers/underscores/hyphens only, no spaces)
-const isValidUsernameFormat = (username) => {
-  const hasValidLength = username.length >= 3 && username.length <= 50;
-  const hasValidChars = /^[a-zA-Z0-9_-]+$/.test(username);
-  const hasNoSpaces = !/\s/.test(username);
-  return hasValidLength && hasValidChars && hasNoSpaces;
-};
-
-// Validate EIN format (XX-XXXXXXX, 9 digits with dash)
-const isValidEINFormat = (ein) => {
-  const einRegex = /^\d{2}-\d{7}$/;
-  return einRegex.test(ein);
-};
+const { sendOrgInviteEmail } = require("../utils/email");
+const { saltRounds, getFrontendUrl } = require("../utils/config");
+const {
+  isValidPhoneFormat,
+  isValidEmailFormat,
+  isValidPasswordFormat,
+  isValidUsernameFormat,
+  isValidEINFormat,
+} = require("../utils/validation");
 
 module.exports = function (app, pool) {
   // GET /api/organizations/verify-ein/:ein
@@ -445,37 +417,13 @@ module.exports = function (app, pool) {
           );
 
         // Build the invite link
-        const frontendUrl = process.env.REACT_APP_API_URL
-          ? process.env.REACT_APP_API_URL.replace(":5000", ":3000")
-          : "http://localhost:3000";
-        const inviteLink = `${frontendUrl}/invite/${token}`;
+        const inviteLink = `${getFrontendUrl()}/invite/${token}`;
 
-        // Send email if SMTP is configured, otherwise log
-        if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-          const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || "smtp.gmail.com",
-            port: parseInt(process.env.SMTP_PORT || "587"),
-            secure: false,
-            auth: {
-              user: process.env.SMTP_USER,
-              pass: process.env.SMTP_PASS,
-            },
-          });
-
-          await transporter.sendMail({
-            from: process.env.SMTP_FROM || process.env.SMTP_USER,
-            to: email,
-            subject: `Allies Connect — You've been invited to join ${orgName}`,
-            html: `
-            <h2>Welcome to Allies Connect!</h2>
-            <p>You've been invited to join <strong>${orgName}</strong> on Allies Connect.</p>
-            <p>Click the link below to create your account:</p>
-            <p><a href="${inviteLink}">${inviteLink}</a></p>
-            <p>This invitation will expire in 7 days.</p>
-            <br/>
-            <p>— Allies Connect</p>
-          `,
-          });
+        // Send invite email
+        try {
+          await sendOrgInviteEmail({ to: email, orgName, inviteLink });
+        } catch (emailErr) {
+          console.error("Failed to send org invite email:", emailErr);
         }
 
         console.log(`Organization invite sent to ${email} for ${orgName}`);

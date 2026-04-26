@@ -37,17 +37,15 @@ describe("Resources API Endpoints", () => {
 
   describe("GET /api/resources", () => {
     it("should return a list of resources", async () => {
-      mockPool
-        .promise()
-        .query.mockResolvedValueOnce([
-          [
-            {
-              resource_id: 1,
-              name: "Food Bank",
-              provider_name: "Helping Hands",
-            },
-          ],
-        ]);
+      mockPool.promise().query.mockResolvedValueOnce([
+        [
+          {
+            resource_id: 1,
+            name: "Food Bank",
+            provider_name: "Helping Hands",
+          },
+        ],
+      ]);
 
       const res = await request(app).get("/api/resources");
       expect(res.statusCode).toEqual(200);
@@ -67,17 +65,15 @@ describe("Resources API Endpoints", () => {
 
   describe("GET /api/resources/:id", () => {
     it("should return a specific resource by id", async () => {
-      mockPool
-        .promise()
-        .query.mockResolvedValueOnce([
-          [
-            {
-              resource_id: 1,
-              name: "Food Bank",
-              provider_name: "Helping Hands",
-            },
-          ],
-        ]);
+      mockPool.promise().query.mockResolvedValueOnce([
+        [
+          {
+            resource_id: 1,
+            name: "Food Bank",
+            provider_name: "Helping Hands",
+          },
+        ],
+      ]);
 
       const res = await request(app).get("/api/resources/1");
       expect(res.statusCode).toEqual(200);
@@ -213,7 +209,7 @@ describe("Resources API Endpoints", () => {
     it("should update a specific resource", async () => {
       mockPool
         .promise()
-        .query// 1: UPDATE query
+        .query // 1: UPDATE query
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         // 2: logAudit
         .mockResolvedValueOnce([{}]);
@@ -232,6 +228,43 @@ describe("Resources API Endpoints", () => {
       expect(res.statusCode).toEqual(200);
       expect(res.body.message).toMatch(/updated/i);
     });
+
+    it("should update category and address fields by switching to a resolved location", async () => {
+      mockPool
+        .promise()
+        .query// 1: resolve existing location by coords
+        .mockResolvedValueOnce([[{ location_id: 99 }]])
+        // 2: UPDATE resource
+        .mockResolvedValueOnce([{ affectedRows: 1 }])
+        // 3: UPDATE provider website
+        .mockResolvedValueOnce([{ affectedRows: 1 }])
+        // 4: logAudit
+        .mockResolvedValueOnce([{}]);
+
+      const res = await request(app)
+        .put("/api/resources/1")
+        .set("x-user-id", "1")
+        .send({
+          category_id: 3,
+          name: "Updated Food Bank",
+          street_address: "456 Updated St",
+          city: "Atlanta",
+          state: "GA",
+          zip: "30318",
+          latitude: 33.75,
+          longitude: -84.39,
+          description: "Updated description",
+          hours: validHours,
+          website: "https://example.org",
+        });
+
+      expect(res.statusCode).toEqual(200);
+      expect(mockPool.promise().query).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining("UPDATE Resource"),
+        expect.arrayContaining([3, 99, "Updated Food Bank"]),
+      );
+    });
   });
 
   // ── DELETE /api/resources/:id ─────────────────────────────────────
@@ -240,7 +273,7 @@ describe("Resources API Endpoints", () => {
     it("should delete a resource", async () => {
       mockPool
         .promise()
-        .query// 1: DELETE query
+        .query // 1: DELETE query
         .mockResolvedValueOnce([{ affectedRows: 1 }])
         // 2: logAudit
         .mockResolvedValueOnce([{}]);

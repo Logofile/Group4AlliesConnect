@@ -3,8 +3,7 @@ import { useState } from "react";
 import { Button, Col, Container, Form, Row } from "react-bootstrap";
 import { Link, useNavigate } from "react-router-dom";
 import "../App.css";
-
-const API_URL = process.env.REACT_APP_API_URL;
+import { API_URL } from "../config";
 
 function Login({ setUser, setRole }) {
   const [username, setUsername] = useState("");

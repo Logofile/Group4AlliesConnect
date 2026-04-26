@@ -5,6 +5,7 @@ import { BrowserRouter, Route, Routes } from "react-router-dom";
 import "./App.css";
 import AuthRoute from "./components/AuthRoute";
 import MyNavbar from "./components/navbar";
+import AdminInviteRegister from "./pages/adminInviteRegister";
 import Admin from "./pages/adminPage";
 import Events from "./pages/events";
 import ForgotPassword from "./pages/forgotPassword";
@@ -45,6 +46,10 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/invite/:token" element={<InviteRegister />} />
+          <Route
+            path="/admin-invite/:token"
+            element={<AdminInviteRegister />}
+          />
           <Route
             path="/provider"
             element={

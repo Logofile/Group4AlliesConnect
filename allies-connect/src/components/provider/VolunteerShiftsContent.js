@@ -355,7 +355,11 @@ function VolunteerShiftsContent({ providerId }) {
       const resp = await fetch(`${API_URL}/api/volunteer-signups`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ shift_id: shiftId, user_id: userId }),
+        body: JSON.stringify({
+          shift_id: shiftId,
+          user_id: userId,
+          scheduled_by_provider: true,
+        }),
       });
       if (!resp.ok) {
         const data = await resp.json();

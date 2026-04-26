@@ -2,9 +2,24 @@ import { useEffect, useState } from "react";
 import { Modal } from "react-bootstrap";
 import "../../App.css";
 
+import { API_URL } from "../../config";
+import AddressAutocomplete from "./AddressAutocomplete";
 import { DAYS_OF_WEEK, formatHours, TIME_OPTIONS } from "./providerHelpers";
+import SocialMediaLinks from "./SocialMediaLinks";
 
-const API_URL = process.env.REACT_APP_API_URL;
+function formatPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (digits.length <= 3) {
+    return digits;
+  }
+  if (digits.length <= 6) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  }
+  if (digits.length <= 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+}
 
 function EventDetailsContent({ data }) {
   return (
@@ -710,11 +725,23 @@ function ResourceDetailsContent({ data }) {
 }
 
 function EditResourceDetailsContent({ data, onHide, userId }) {
+  const [categories, setCategories] = useState([]);
+  const [selectedCategories, setSelectedCategories] = useState([]);
   const [formData, setFormData] = useState({
     name: "",
+    street_address: "",
+    city: "",
+    state: "GA",
+    zip: "",
+    latitude: null,
+    longitude: null,
     description: "",
     eligibility_requirements: "",
+    contact_phone: "",
+    languages_spoken: "",
+    website: "",
     image_url: "",
+    social_media_links: [],
   });
   const [hours, setHours] = useState(() => {
     const init = {};
@@ -730,13 +757,62 @@ function EditResourceDetailsContent({ data, onHide, userId }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(`${API_URL}/api/categories`);
+        const rows = await response.json();
+        setCategories(Array.isArray(rows) ? rows : []);
+      } catch (error) {
+        console.error("Error fetching categories:", error);
+      }
+    };
+
+    fetchCategories();
+  }, []);
+
+  useEffect(() => {
     if (data) {
+      let parsedSocialMediaLinks = [];
+      if (data.social_media_links) {
+        try {
+          parsedSocialMediaLinks =
+            typeof data.social_media_links === "string"
+              ? JSON.parse(data.social_media_links)
+              : data.social_media_links;
+        } catch {
+          parsedSocialMediaLinks = [];
+        }
+      }
+
       setFormData({
         name: data.name || "",
+        street_address: data.street_address_1 || "",
+        city: data.city || "",
+        state: data.state || "GA",
+        zip: data.zip || "",
+        latitude: data.latitude ?? null,
+        longitude: data.longitude ?? null,
         description: data.description || "",
         eligibility_requirements: data.eligibility_requirements || "",
+        contact_phone: formatPhone(data.contact_phone || ""),
+        languages_spoken: data.languages_spoken || "",
+        website: data.website || "",
         image_url: data.image_url || "",
+        social_media_links: Array.isArray(parsedSocialMediaLinks)
+          ? parsedSocialMediaLinks
+          : [],
       });
+      setSelectedCategories(
+        data.category_id
+          ? [
+              {
+                category_id: data.category_id,
+                name: data.category_name || "",
+                type: "resource",
+              },
+            ]
+          : [],
+      );
       // Parse existing hours if they are JSON-structured
       if (data.hours) {
         try {
@@ -756,7 +832,45 @@ function EditResourceDetailsContent({ data, onHide, userId }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "contact_phone" ? formatPhone(value) : value,
+    }));
+  };
+
+  const handleAddressSelect = (addressData) => {
+    setFormData((prev) => ({
+      ...prev,
+      street_address: addressData.street_address,
+      city: addressData.city,
+      state: addressData.state,
+      zip: addressData.zip,
+      latitude: addressData.latitude,
+      longitude: addressData.longitude,
+    }));
+  };
+
+  const handleAddCategory = (e) => {
+    const categoryId = e.target.value;
+    if (!categoryId) return;
+    const category = categories.find(
+      (item) => String(item.category_id) === String(categoryId),
+    );
+    if (
+      category &&
+      !selectedCategories.find(
+        (item) => item.category_id === category.category_id,
+      )
+    ) {
+      setSelectedCategories((prev) => [...prev, category]);
+    }
+    e.target.value = "";
+  };
+
+  const handleRemoveCategory = (categoryId) => {
+    setSelectedCategories((prev) =>
+      prev.filter((item) => item.category_id !== categoryId),
+    );
   };
 
   const handleHoursChange = (day, field, value) => {
@@ -779,20 +893,42 @@ function EditResourceDetailsContent({ data, onHide, userId }) {
   };
 
   const handleSave = async () => {
-    if (!formData.name) {
-      alert("Name is required.");
+    if (
+      !formData.name ||
+      !formData.street_address ||
+      !formData.city ||
+      !formData.state ||
+      !formData.zip
+    ) {
+      alert("Please fill in all required fields.");
+      return;
+    }
+    if (selectedCategories.length === 0) {
+      alert("Please select at least one resource type.");
       return;
     }
     setSaving(true);
     try {
       const payload = {
-        category_id: data.category_id,
-        location_id: data.location_id,
+        category_id: selectedCategories[0].category_id,
+        street_address: formData.street_address,
+        city: formData.city,
+        state: formData.state,
+        zip: formData.zip,
+        latitude: formData.latitude,
+        longitude: formData.longitude,
         name: formData.name,
         description: formData.description || null,
         hours: JSON.stringify(hours),
         image_url: formData.image_url || null,
         eligibility_requirements: formData.eligibility_requirements || null,
+        contact_phone: formData.contact_phone || null,
+        languages_spoken: formData.languages_spoken || null,
+        website: formData.website || null,
+        social_media_links:
+          formData.social_media_links.length > 0
+            ? JSON.stringify(formData.social_media_links)
+            : null,
       };
       const response = await fetch(
         `${API_URL}/api/resources/${data.resource_id}`,
@@ -836,32 +972,62 @@ function EditResourceDetailsContent({ data, onHide, userId }) {
       </div>
       <div className="mb-3">
         <label className="form-label">
-          <strong>Category</strong>
+          <strong>
+            Type of Resource <span className="text-danger">*</span>
+          </strong>
         </label>
-        <input
-          type="text"
-          className="form-control"
-          value={data?.category_name || "N/A"}
-          readOnly
-          disabled
-        />
+        {selectedCategories.length > 0 && (
+          <div className="d-flex flex-wrap gap-2 mb-2">
+            {selectedCategories.map((category) => (
+              <span
+                key={category.category_id}
+                className="badge rounded-pill d-flex align-items-center"
+                style={{
+                  backgroundColor: "#c5a24d",
+                  color: "#fff",
+                  fontSize: "0.9rem",
+                  padding: "0.4em 0.8em",
+                }}
+              >
+                {category.name}
+                <button
+                  type="button"
+                  className="btn-close btn-close-white ms-2"
+                  style={{ fontSize: "0.6rem" }}
+                  onClick={() => handleRemoveCategory(category.category_id)}
+                  aria-label="Remove"
+                />
+              </span>
+            ))}
+          </div>
+        )}
+        <select
+          className="form-select"
+          onChange={handleAddCategory}
+          defaultValue=""
+        >
+          <option value="">Select resource type(s)</option>
+          {categories
+            .filter(
+              (category) =>
+                (category.type === "resource" || category.type === "both") &&
+                !selectedCategories.find(
+                  (selected) => selected.category_id === category.category_id,
+                ),
+            )
+            .map((category) => (
+              <option key={category.category_id} value={category.category_id}>
+                {category.name}
+              </option>
+            ))}
+        </select>
       </div>
-      <div className="mb-3">
-        <label className="form-label">
-          <strong>Location</strong>
-        </label>
-        <input
-          type="text"
-          className="form-control"
-          value={
-            data?.street_address_1
-              ? `${data.street_address_1}, ${data.city}, ${data.state} ${data.zip}`
-              : "N/A"
-          }
-          readOnly
-          disabled
-        />
-      </div>
+
+      <AddressAutocomplete
+        formData={formData}
+        onChange={handleChange}
+        onAddressSelect={handleAddressSelect}
+      />
       <div className="mb-3">
         <label className="form-label">
           <strong>Days and Hours of Operation</strong>
@@ -952,6 +1118,58 @@ function EditResourceDetailsContent({ data, onHide, userId }) {
           rows="2"
           value={formData.eligibility_requirements}
           onChange={handleChange}
+        />
+      </div>
+      <div className="mb-3">
+        <label className="form-label">
+          <strong>Phone Number</strong>
+        </label>
+        <input
+          type="tel"
+          className="form-control"
+          name="contact_phone"
+          placeholder="(555) 555-5555"
+          value={formData.contact_phone}
+          onChange={handleChange}
+          inputMode="tel"
+          maxLength={14}
+        />
+      </div>
+      <div className="mb-3">
+        <label className="form-label">
+          <strong>Languages</strong>
+        </label>
+        <input
+          type="text"
+          className="form-control"
+          name="languages_spoken"
+          placeholder="e.g. English, Spanish"
+          value={formData.languages_spoken}
+          onChange={handleChange}
+        />
+      </div>
+      <div className="mb-3">
+        <label className="form-label">
+          <strong>Website URL</strong>
+        </label>
+        <input
+          type="url"
+          className="form-control"
+          name="website"
+          placeholder="https://example.org"
+          value={formData.website}
+          onChange={handleChange}
+        />
+      </div>
+      <div className="mb-3">
+        <label className="form-label">
+          <strong>Social Media Links</strong>
+        </label>
+        <SocialMediaLinks
+          links={formData.social_media_links}
+          onChange={(val) =>
+            setFormData((prev) => ({ ...prev, social_media_links: val }))
+          }
         />
       </div>
       <div className="mb-3">

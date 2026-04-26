@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Button, Col, Container, Form, Row } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
 import "../App.css";
-
-const API_URL = process.env.REACT_APP_API_URL;
+import { API_URL } from "../config";
 
 function ForgotPassword() {
   const [email, setEmail] = useState("");

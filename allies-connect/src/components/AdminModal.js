@@ -2,14 +2,9 @@ import axios from "axios";
 import { useEffect, useState } from "react";
 import { Modal, Table } from "react-bootstrap";
 import "../App.css";
+import { API_URL } from "../config";
+import { getAuthHeaders } from "../utils/auth";
 import AdminDetailsModal from "./AdminDetailsModal";
-
-const API_URL = process.env.REACT_APP_API_URL;
-
-const getAuthHeaders = () => {
-  const user = JSON.parse(localStorage.getItem("user"));
-  return { "x-user-id": user?.user_id };
-};
 
 function useTableDataProcessing(data, searchFields) {
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
@@ -52,40 +47,6 @@ function useTableDataProcessing(data, searchFields) {
     });
 
   return { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery };
-}
-
-function formatHoursSummary(hours) {
-  if (!hours) return "N/A";
-
-  let obj = hours;
-  if (typeof hours === "string") {
-    try {
-      obj = JSON.parse(hours);
-    } catch {
-      return hours;
-    }
-  }
-
-  if (typeof obj !== "object" || !obj) return "N/A";
-
-  const days = [
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-  ];
-
-  return days
-    .map((day) => {
-      const d = obj[day];
-      if (!d) return `${day.slice(0, 3)}: N/A`;
-      if (d.closed) return `${day.slice(0, 3)}: Closed`;
-      return `${day.slice(0, 3)}: ${d.open || "?"}-${d.close || "?"}`;
-    })
-    .join("; ");
 }
 
 function PendingOrgsContent({ onViewDetails }) {
@@ -219,18 +180,39 @@ function PendingOrgsContent({ onViewDetails }) {
 
 function EditAccountsContent({ onViewDetails }) {
   const [accounts, setAccounts] = useState([]);
+  const [inviteMode, setInviteMode] = useState("");
+  const [providerInvite, setProviderInvite] = useState({
+    email: "",
+    ein: "",
+  });
+  const [adminInviteEmail, setAdminInviteEmail] = useState("");
   const { sortedData, handleSort, sortSymbol, searchQuery, setSearchQuery } =
-    useTableDataProcessing(accounts, [
-      "name",
-      "email",
-      "roles",
-      "date_created",
-      "date_updated",
-    ]);
+    useTableDataProcessing(accounts, ["name", "email", "roles"]);
 
   useEffect(() => {
     fetchAccounts();
   }, []);
+
+  const isValidEmailFormat = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const isValidEINFormat = (ein) => {
+    const einRegex = /^\d{2}-\d{7}$/;
+    return einRegex.test(ein);
+  };
+
+  const hasNineDigits = (ein) => {
+    const digits = ein.replace(/\D/g, "");
+    return digits.length === 9;
+  };
+
+  const formatEIN = (value) => {
+    const digits = value.replace(/\D/g, "").slice(0, 9);
+    if (digits.length <= 2) return digits;
+    return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  };
 
   const fetchAccounts = async () => {
     try {
@@ -238,19 +220,212 @@ function EditAccountsContent({ onViewDetails }) {
         headers: getAuthHeaders(),
       });
       if (!response.ok) {
-        throw new Error(`Failed with status ${response.status}`);
+        const errData = await response.json().catch(() => ({}));
+        throw new Error(
+          errData.error || `Failed with status ${response.status}`,
+        );
       }
       const data = await response.json();
       setAccounts(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error("Error fetching accounts:", error);
-      alert("Error fetching accounts.");
+      alert(`Error fetching accounts: ${error.message || "Unknown error"}`);
       setAccounts([]);
     }
   };
 
+  const sendProviderInvite = async () => {
+    if (!providerInvite.email || !providerInvite.ein) {
+      alert("Email and EIN are required.");
+      return;
+    }
+    if (!isValidEmailFormat(providerInvite.email)) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+    if (!isValidEINFormat(providerInvite.ein)) {
+      alert("Please enter EIN in the format XX-XXXXXXX.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/provider-invite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({
+          email: providerInvite.email,
+          ein: providerInvite.ein,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || "Failed to send provider invite.");
+        return;
+      }
+
+      alert("Provider invite sent successfully.");
+      setProviderInvite({ email: "", ein: "" });
+      setInviteMode("");
+    } catch (error) {
+      console.error("Error sending provider invite:", error);
+      alert("Failed to send provider invite.");
+    }
+  };
+
+  const sendAdminInvite = async () => {
+    if (!adminInviteEmail) {
+      alert("Email is required.");
+      return;
+    }
+    if (!isValidEmailFormat(adminInviteEmail)) {
+      alert("Please enter a valid email address.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/admin/admin-invite`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...getAuthHeaders(),
+        },
+        body: JSON.stringify({ email: adminInviteEmail }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || "Failed to send admin invite.");
+        return;
+      }
+
+      alert("Admin invite sent successfully.");
+      setAdminInviteEmail("");
+      setInviteMode("");
+    } catch (error) {
+      console.error("Error sending admin invite:", error);
+      alert("Failed to send admin invite.");
+    }
+  };
+
+  const providerInviteEinIsValid = isValidEINFormat(providerInvite.ein);
+  const providerInviteEinHasNineDigits = hasNineDigits(providerInvite.ein);
+
   return (
     <>
+      <div className="mb-3 d-flex gap-2">
+        <button
+          className="outline-warning"
+          onClick={() =>
+            setInviteMode((prev) =>
+              prev === "providerInvite" ? "" : "providerInvite",
+            )
+          }
+        >
+          Provider Invite
+        </button>
+        <button
+          className="outline-warning"
+          onClick={() =>
+            setInviteMode((prev) =>
+              prev === "adminInvite" ? "" : "adminInvite",
+            )
+          }
+        >
+          Admin Invite
+        </button>
+      </div>
+
+      {inviteMode === "providerInvite" && (
+        <div className="p-3 border rounded mb-3">
+          <h5 className="mb-3">Send Provider Invite</h5>
+          <div className="row g-2">
+            <div className="col-md-5">
+              <input
+                type="email"
+                className="form-control"
+                placeholder="Invitee email"
+                value={providerInvite.email}
+                onChange={(e) =>
+                  setProviderInvite((prev) => ({
+                    ...prev,
+                    email: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="col-md-4">
+              <input
+                type="text"
+                className={`form-control ${
+                  providerInviteEinIsValid
+                    ? "is-valid"
+                    : providerInvite.ein && providerInviteEinHasNineDigits
+                      ? "is-invalid"
+                      : ""
+                }`}
+                placeholder="EIN (XX-XXXXXXX)"
+                value={providerInvite.ein}
+                onChange={(e) =>
+                  setProviderInvite((prev) => ({
+                    ...prev,
+                    ein: formatEIN(e.target.value),
+                  }))
+                }
+              />
+              {providerInviteEinIsValid && (
+                <div className="text-success small mt-1">
+                  EIN format valid ✓
+                </div>
+              )}
+              {providerInvite.ein &&
+                providerInviteEinHasNineDigits &&
+                !providerInviteEinIsValid && (
+                  <div className="text-danger small mt-1">
+                    EIN must be in the format XX-XXXXXXX (9 digits)
+                  </div>
+                )}
+            </div>
+            <div className="col-md-3 d-grid">
+              <button
+                className={
+                  providerInviteEinIsValid ? "btn-green" : "btn-secondary"
+                }
+                onClick={sendProviderInvite}
+                disabled={!providerInviteEinIsValid}
+              >
+                Send Invite
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {inviteMode === "adminInvite" && (
+        <div className="p-3 border rounded mb-3">
+          <h5 className="mb-3">Send Admin Invite</h5>
+          <div className="row g-2">
+            <div className="col-md-9">
+              <input
+                type="email"
+                className="form-control"
+                placeholder="Invitee email"
+                value={adminInviteEmail}
+                onChange={(e) => setAdminInviteEmail(e.target.value)}
+              />
+            </div>
+            <div className="col-md-3 d-grid">
+              <button className="btn-green" onClick={sendAdminInvite}>
+                Send Invite
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <input
         type="text"
         className="form-control mb-3"
@@ -279,18 +454,6 @@ function EditAccountsContent({ onViewDetails }) {
             >
               Roles {sortSymbol("roles")}
             </th>
-            <th
-              style={{ cursor: "pointer" }}
-              onClick={() => handleSort("date_created")}
-            >
-              Date Created {sortSymbol("date_created")}
-            </th>
-            <th
-              style={{ cursor: "pointer" }}
-              onClick={() => handleSort("date_updated")}
-            >
-              Date Updated {sortSymbol("date_updated")}
-            </th>
             <th>Details</th>
           </tr>
         </thead>
@@ -300,8 +463,6 @@ function EditAccountsContent({ onViewDetails }) {
               <td>{account.name || "N/A"}</td>
               <td>{account.email || "N/A"}</td>
               <td>{account.roles || "N/A"}</td>
-              <td>{account.date_created || "N/A"}</td>
-              <td>{account.date_updated || "N/A"}</td>
               <td>
                 <button
                   className="outline-warning me-2"
@@ -374,12 +535,6 @@ function ManageResourcesContent({ onViewDetails }) {
             </th>
             <th
               style={{ cursor: "pointer" }}
-              onClick={() => handleSort("hours")}
-            >
-              Hours {sortSymbol("hours")}
-            </th>
-            <th
-              style={{ cursor: "pointer" }}
               onClick={() => handleSort("category_name")}
             >
               Category {sortSymbol("category_name")}
@@ -398,7 +553,6 @@ function ManageResourcesContent({ onViewDetails }) {
                 <td>{resource.name}</td>
                 <td>{resource.zip}</td>
                 <td>{resource.provider_name}</td>
-                <td>{formatHoursSummary(resource.hours)}</td>
                 <td>{resource.category_name}</td>
                 <td>
                   <button

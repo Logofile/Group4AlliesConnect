@@ -1,16 +1,17 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+const express = require("express");
+const cors = require("cors");
+require("dotenv").config();
+const { startEventReminderJob } = require("./utils/eventReminders");
 
 const app = express();
 const port = process.env.PORT || 5000;
 
-const mysql = require('mysql2');
-const swaggerUi = require('swagger-ui-express');
-const swaggerDocument = require('./swagger.json');
+const mysql = require("mysql2");
+const swaggerUi = require("swagger-ui-express");
+const swaggerDocument = require("./swagger.json");
 
 // Determine if we are in the development environment
-const isDev = process.env.NODE_ENV === 'development';
+const isDev = process.env.NODE_ENV === "development";
 
 // Conditionally select the database configuration
 const dbConfig = {
@@ -26,9 +27,9 @@ const pool = mysql.createPool(dbConfig);
 // Test the connection
 pool.getConnection((err, connection) => {
   if (err) {
-    console.error('Error connecting to MySQL database:', err.message);
+    console.error("Error connecting to MySQL database:", err.message);
   } else {
-    console.log('Successfully connected to MySQL database');
+    console.log("Successfully connected to MySQL database");
     connection.release();
   }
 });
@@ -39,41 +40,43 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Swagger docs
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // API Routes
-require('./api/events')(app, pool);
-require('./api/resources')(app, pool);
-require('./api/organizations')(app, pool);
-require('./api/volunteers')(app, pool);
-require('./api/auth')(app, pool);
-require('./api/admin')(app, pool);
+require("./api/events")(app, pool);
+require("./api/resources")(app, pool);
+require("./api/organizations")(app, pool);
+require("./api/volunteers")(app, pool);
+require("./api/auth")(app, pool);
+require("./api/admin")(app, pool);
 
 // Basic route
-app.get('/', async (req, res) => {
+app.get("/", async (req, res) => {
   try {
     // Query the database to confirm connection
-    const [rows] = await pool.promise().query(
-      'SELECT * FROM User WHERE user_id = 1'
-    );
+    const [rows] = await pool
+      .promise()
+      .query("SELECT * FROM User WHERE user_id = 1");
 
-    const email = rows[0]?.email || 'No email found';
+    const email = rows[0]?.email || "No email found";
 
     res.json({
-      message: `Welcome to the Allies Connect API, ${email}`
+      message: `Welcome to the Allies Connect API, ${email}`,
     });
   } catch (error) {
-    console.error('Database query error:', error);
+    console.error("Database query error:", error);
     res.status(500).json({
-      message: 'Welcome to the Allies Connect API',
-      db_status: 'Error',
-      error: error.message
+      message: "Welcome to the Allies Connect API",
+      db_status: "Error",
+      error: error.message,
     });
   }
 });
 
 // Start server
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== "test") {
+  startEventReminderJob(pool);
+
   app.listen(port, () => {
     console.log(`Server is running on port: ${port}`);
   });

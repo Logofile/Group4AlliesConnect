@@ -2,8 +2,7 @@ import axios from "axios";
 import React, { useEffect, useState } from "react";
 import { Button, Col, Image, Modal, Row } from "react-bootstrap";
 import { useNavigate } from "react-router-dom";
-
-const API_URL = process.env.REACT_APP_API_URL;
+import { API_URL } from "../config";
 
 function MapPinDetails({ details }) {
   const navigate = useNavigate();
@@ -16,6 +15,7 @@ function MapPinDetails({ details }) {
   const [activeConnectionId, setActiveConnectionId] = useState(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [loading, setLoading] = useState(false);
+  const isResource = details?.type === "Resource";
 
   // Check volunteer status whenever the resource details change
   useEffect(() => {
@@ -90,6 +90,22 @@ function MapPinDetails({ details }) {
 
   if (!details) return null;
 
+  const renderDetailRow = (label, content) => (
+    <div>
+      <strong>{label}:</strong> {content}
+    </div>
+  );
+
+  const websiteUrl = details.website?.trim();
+  const languageList = Array.isArray(details.languages)
+    ? details.languages.filter(Boolean)
+    : [];
+  const socialMediaLinks = Array.isArray(details.socialMedia)
+    ? details.socialMedia.filter(
+        (entry) => (entry?.url || entry?.link || "").trim().length > 0,
+      )
+    : [];
+
   return (
     <div
       style={{
@@ -145,10 +161,14 @@ function MapPinDetails({ details }) {
         {/* Wraps the text always for small screens, and puts the text to the right on larger screens */}
         <Col xs={12} md={8} style={{ paddingLeft: "10px" }}>
           <div style={{ fontSize: "13px", lineHeight: "1.4", color: "#444" }}>
-            {details.address && <div>Address: {details.address}</div>}
+            {details.address && (
+              <div>
+                <strong>Address:</strong> {details.address}
+              </div>
+            )}
             {details.eventDateTime && (
               <div>
-                Date &amp; Time:
+                <strong>Date &amp; Time:</strong>
                 <br />
                 <span style={{ whiteSpace: "pre-line" }}>
                   {details.eventDateTime}
@@ -157,46 +177,120 @@ function MapPinDetails({ details }) {
             )}
             {details.hours && (
               <div>
-                Hours:
+                <strong>Hours:</strong>
                 <br />
-                <span style={{ whiteSpace: "pre-line" }}>{details.hours}</span>
-              </div>
-            )}
-            {details.phone && <div>Phone: {details.phone}</div>}
-            {details.website && (
-              <div>
-                Website:{" "}
-                <a
-                  href={details.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: "#0097a7" }}
+                <span
+                  style={{
+                    whiteSpace: "pre-line",
+                    fontSize: "12px",
+                    lineHeight: "1.2",
+                  }}
                 >
-                  {details.website_display || details.website}
-                </a>
+                  {details.hours}
+                </span>
               </div>
             )}
-            {details.socialMedia && details.socialMedia.length > 0 && (
-              <div>
-                Social Media:{" "}
-                {details.socialMedia.map((sm, i) => (
-                  <React.Fragment key={sm.name}>
+            {isResource
+              ? renderDetailRow("Phone", details.phone || "Not listed")
+              : details.phone && (
+                  <div>
+                    <strong>Phone:</strong> {details.phone}
+                  </div>
+                )}
+            {isResource
+              ? renderDetailRow(
+                  "Website",
+                  websiteUrl ? (
                     <a
-                      href={sm.link}
+                      href={websiteUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: "#0097a7", textDecoration: "underline" }}
+                      style={{ color: "#0097a7" }}
                     >
-                      {sm.name}
+                      {details.website_display || websiteUrl}
                     </a>
-                    {i < details.socialMedia.length - 1 ? ", " : ""}
-                  </React.Fragment>
-                ))}
-              </div>
-            )}
-            {details.languages && details.languages.length > 0 && (
-              <div>Languages: {details.languages.join(", ")}</div>
-            )}
+                  ) : (
+                    "Not listed"
+                  ),
+                )
+              : websiteUrl && (
+                  <div>
+                    <strong>Website:</strong>{" "}
+                    <a
+                      href={websiteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#0097a7" }}
+                    >
+                      {details.website_display || websiteUrl}
+                    </a>
+                  </div>
+                )}
+            {isResource
+              ? renderDetailRow(
+                  "Languages",
+                  languageList.length > 0
+                    ? languageList.join(", ")
+                    : "Not listed",
+                )
+              : languageList.length > 0 && (
+                  <div>
+                    <strong>Languages:</strong> {languageList.join(", ")}
+                  </div>
+                )}
+            {isResource
+              ? renderDetailRow(
+                  "Social Media",
+                  socialMediaLinks.length > 0 ? (
+                    <>
+                      {socialMediaLinks.map((sm, i) => {
+                        const url = sm.url || sm.link;
+                        return (
+                          <React.Fragment key={`${sm.name}-${url}`}>
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{
+                                color: "#0097a7",
+                                textDecoration: "underline",
+                              }}
+                            >
+                              {sm.name}
+                            </a>
+                            {i < socialMediaLinks.length - 1 ? ", " : ""}
+                          </React.Fragment>
+                        );
+                      })}
+                    </>
+                  ) : (
+                    "Not listed"
+                  ),
+                )
+              : socialMediaLinks.length > 0 && (
+                  <div>
+                    <strong>Social Media:</strong>{" "}
+                    {socialMediaLinks.map((sm, i) => {
+                      const url = sm.url || sm.link;
+                      return (
+                        <React.Fragment key={`${sm.name}-${url}`}>
+                          <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              color: "#0097a7",
+                              textDecoration: "underline",
+                            }}
+                          >
+                            {sm.name}
+                          </a>
+                          {i < socialMediaLinks.length - 1 ? ", " : ""}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                )}
           </div>
 
           <div className="mt-3">
@@ -224,7 +318,7 @@ function MapPinDetails({ details }) {
             )}
             <div className="d-flex mb-2" style={{ gap: "10px" }}>
               {/* TODO: Make the buttons go to a page */}
-              {details.eligibility_requirements && (
+              {details.type === "Resource" && (
                 <Button
                   variant="outline-info"
                   onClick={() => setShowEligibilityModal(true)}
@@ -339,7 +433,9 @@ function MapPinDetails({ details }) {
                 <Modal.Title>Eligibility Requirements</Modal.Title>
               </Modal.Header>
               <Modal.Body style={{ whiteSpace: "pre-line", fontSize: "14px" }}>
-                {details.eligibility_requirements}
+                {details.eligibility_requirements?.trim()
+                  ? details.eligibility_requirements
+                  : "No eligibility requirements were provided for this resource."}
               </Modal.Body>
               <Modal.Footer>
                 <Button

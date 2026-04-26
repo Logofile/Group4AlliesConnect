@@ -2,6 +2,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 -- Drop tables
 DROP TABLE IF EXISTS OrganizationInvite;
+DROP TABLE IF EXISTS AdminInvite;
 DROP TABLE IF EXISTS PasswordResetToken;
 DROP TABLE IF EXISTS VolunteerUnavailableDate;
 DROP TABLE IF EXISTS VolunteerAvailability;
@@ -413,6 +414,22 @@ CREATE TABLE OrganizationInvite (
     FOREIGN KEY (provider_id) REFERENCES ServiceProvider(provider_id)
     ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_invite_user
+    FOREIGN KEY (invited_by_user_id) REFERENCES `User`(user_id)
+    ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- Admin Invite Tokens
+CREATE TABLE AdminInvite (
+  invite_id INT NOT NULL AUTO_INCREMENT,
+  invited_by_user_id INT NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  token VARCHAR(255) NOT NULL,
+  expires_at DATETIME NOT NULL,
+  used BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (invite_id),
+  UNIQUE KEY uq_admin_invite_token (token(191)),
+  CONSTRAINT fk_admininvite_user
     FOREIGN KEY (invited_by_user_id) REFERENCES `User`(user_id)
     ON DELETE CASCADE ON UPDATE CASCADE
 );

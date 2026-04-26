@@ -1,37 +1,17 @@
 const bcrypt = require("bcrypt");
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
-const saltRounds = 10;
+const {
+  sendVolunteerWelcomeEmail,
+  sendPasswordResetEmail,
+} = require("../utils/email");
+const { saltRounds, getFrontendUrl } = require("../utils/config");
+const {
+  isValidPhoneFormat,
+  isValidEmailFormat,
+  isValidPasswordFormat,
+  isValidUsernameFormat,
+} = require("../utils/validation");
 const { rateLimit } = require("../middleware/rateLimit");
-
-// Validate phone number format (10 digits)
-const isValidPhoneFormat = (phone) => {
-  const phoneRegex = /^\d{10}$/;
-  return phoneRegex.test(phone.replace(/\D/g, ""));
-};
-
-// Validate email format
-const isValidEmailFormat = (email) => {
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return emailRegex.test(email);
-};
-
-// Validate password format (more than 6 characters, at least one capital letter, at least one special character, no spaces)
-const isValidPasswordFormat = (password) => {
-  const hasMinLength = password.length > 6;
-  const hasCapitalLetter = /[A-Z]/.test(password);
-  const hasSpecialChar = /[!@#$%^&*()_+\-=\[\]{}|;:',.<>?/~`]/.test(password);
-  const hasNoSpaces = !/\s/.test(password);
-  return hasMinLength && hasCapitalLetter && hasSpecialChar && hasNoSpaces;
-};
-
-// Validate username format (3-50 characters, letters/numbers/underscores/hyphens only, no spaces)
-const isValidUsernameFormat = (username) => {
-  const hasValidLength = username.length >= 3 && username.length <= 50;
-  const hasValidChars = /^[a-zA-Z0-9_-]+$/.test(username);
-  const hasNoSpaces = !/\s/.test(username);
-  return hasValidLength && hasValidChars && hasNoSpaces;
-};
 
 module.exports = function (app, pool) {
   // POST /api/auth/register
@@ -149,6 +129,15 @@ module.exports = function (app, pool) {
             "INSERT INTO UserRole (user_id, role_id) SELECT ?, role_id FROM Role WHERE role_name = ?",
             [userId, role],
           );
+
+        try {
+          await sendVolunteerWelcomeEmail({
+            to: email,
+            firstName: first_name,
+          });
+        } catch (emailErr) {
+          console.error("Failed to send welcome email:", emailErr);
+        }
 
         res.status(201).json({
           message: "User registered successfully",
@@ -279,40 +268,17 @@ module.exports = function (app, pool) {
           );
 
         // Build the reset link
-        const frontendUrl = process.env.REACT_APP_API_URL
-          ? process.env.REACT_APP_API_URL.replace(":5000", ":3000")
-          : "http://localhost:3000";
-        const resetLink = `${frontendUrl}/reset-password/${token}`;
+        const resetLink = `${getFrontendUrl()}/reset-password/${token}`;
 
-        // Send email if SMTP is configured, otherwise log the link to console
-        if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-          const transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || "smtp.gmail.com",
-            port: parseInt(process.env.SMTP_PORT || "587"),
-            secure: false,
-            auth: {
-              user: process.env.SMTP_USER,
-              pass: process.env.SMTP_PASS,
-            },
-          });
-
-          await transporter.sendMail({
-            from: process.env.SMTP_FROM || process.env.SMTP_USER,
+        // Send password reset email
+        try {
+          await sendPasswordResetEmail({
             to: email,
-            subject: "Allies Connect — Password Reset",
-            html: `
-            <h2>Password Reset Request</h2>
-            <p>Hi ${user.username},</p>
-            <p>We received a request to reset your password. Click the link below to set a new password:</p>
-            <p><a href="${resetLink}">${resetLink}</a></p>
-            <p>This link will expire in 1 hour.</p>
-            <p>If you did not request this, you can safely ignore this email.</p>
-            <br/>
-            <p>— Allies Connect</p>
-          `,
+            username: user.username,
+            resetLink,
           });
-
-          console.log(`Password reset email sent to ${email}`);
+        } catch (emailErr) {
+          console.error("Failed to send password reset email:", emailErr);
         }
         res.json({ message: successMsg });
       } catch (err) {

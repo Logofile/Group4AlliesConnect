@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Col, Container, Row } from "react-bootstrap";
 import "../App.css";
 import AdminModal from "../components/AdminModal";
-
-const API_URL = process.env.REACT_APP_API_URL;
+import { API_URL } from "../config";
 
 function Admin({ user, setUser, role, setRole }) {
   const [modalType, setModalType] = useState("");
